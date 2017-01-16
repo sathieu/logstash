@@ -27,10 +27,17 @@ module LogStash; class BasePipeline
 
   attr_reader :config_str, :config_hash, :inputs, :filters, :outputs, :pipeline_id
 
-  def initialize(config_str, settings = SETTINGS)
+  def initialize(pipeline_config, settings = SETTINGS, namespaced_metric = nil)
     @logger = self.logger
-    @config_str = config_str
-    @config_hash = Digest::SHA1.hexdigest(@config_str)
+
+    if pipeline_config.is_a?(String)
+      @config_str = pipeline_config
+      @config_hash = Digest::SHA1.hexdigest(@config_str)
+    else
+      @config_str = pipeline_config.config_string
+      @config_hash = pipeline_config.config_hash
+    end
+
     # Every time #plugin is invoked this is incremented to give each plugin
     # a unique id when auto-generating plugin ids
     @plugin_counter ||= 0
