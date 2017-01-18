@@ -7,9 +7,7 @@ require "fileutils"
 require_relative "../support/helpers"
 
 describe LogStash::Agent do
-
-  let(:agent_settings) { LogStash::SETTINGS }
-  let(:default_pipeline_id) { LogStash::SETTINGS.get("pipeline.id") }
+  let(:agent_settings) { mock_settings( "config.string" => "input {} output {}") }
   let(:agent_args) { {} }
   let(:pipeline_settings) { agent_settings.clone }
   let(:pipeline_args) { {} }
