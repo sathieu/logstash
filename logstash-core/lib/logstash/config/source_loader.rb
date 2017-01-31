@@ -26,24 +26,24 @@ module LogStash module Config
     # This return a ConfigLoader object that will
     # abstract the call to the different sources and will return multiples pipeline
     def create(settings)
-      source_loaders = []
+      sources_loaders = []
 
       sources do |source|
         if source.match?(settings)
-          source_loaders << source.new(settings)
+          sources_loaders << source.new(settings)
         end
       end
 
-      if sources.empty?
+      if sources_loaders.empty?
         # This shouldn't happen with the settings object or with any external plugins.
         # but lets add a guard so we fail fast.
         raise LogStash::InvalidSourceLoaderSettingError, "Can't find an appropriate config loader with current settings"
       else
-        Source.new(sources)
+        AggregateSource.new(sources_loaders)
       end
     end
 
-    def sources
+    def sources()
       @sources_lock.synchronize do
         @sources.each do |source|
           yield source

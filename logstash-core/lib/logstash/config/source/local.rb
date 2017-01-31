@@ -137,7 +137,7 @@ module LogStash module Config module Source
 
       config_parts.concat(ConfigStringLoader.read(config_string)) if config_string?
       config_parts.concat(ConfigPathLoader.read(config_path)) if local_config?
-      config_part.concat(ConfigRemoteLoader.read(config_path)) if remote_config?
+      config_parts.concat(ConfigRemoteLoader.read(config_path)) if remote_config?
 
       add_missing_default_inputs_or_outputs(config_parts)
 

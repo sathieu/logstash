@@ -27,30 +27,31 @@ describe LogStash::Config::SourceLoader do
   subject { described_class.new }
 
   it "default to local source" do
-    loaders = []
+    sources = []
 
-    subject.source_loaders { |loader| loaders << loader }
+    subject.sources { |source| sources << source }
 
-    expect(loaders.size).to eq(1)
-    expect(loaders).to include(LogStash::Config::Source::Local)
+    expect(sources.size).to eq(1)
+    expect(sources).to include(LogStash::Config::Source::Local)
   end
 
   it "allows to override the available source loaders" do
     subject.configure_sources(DummySource)
-    loaders = []
-    subject.source_loaders { |loader| loaders << loader }
+    sources = []
+    subject.sources { |source| sources << source }
 
-    expect(loaders.size).to eq(1)
-    expect(loaders).to include(DummySource)
+    expect(sources.size).to eq(1)
+    expect(sources).to include(DummySource)
   end
 
   it "allows to add a new source" do
-    loaders = []
-    subject.add_source(DummySource)
-    subject.source_loaders { |loader| loaders << loader }
+    sources = []
 
-    expect(loaders.size).to eq(2)
-    expect(loaders).to include(DummySource, LogStash::Config::Source::Local)
+    subject.add_source(DummySource)
+    subject.sources { |source| sources << source }
+
+    expect(sources.size).to eq(2)
+    expect(sources).to include(DummySource, LogStash::Config::Source::Local)
   end
 
   context "when no source match" do
