@@ -44,7 +44,7 @@ module LogStash module Config module Source
           logger.debug("Reading config file", :config_file => file)
 
           if temporary_file?(file)
-            logger.debug("NOT reading config file because it is a temp file", :config_file => file)
+            logger.warn("NOT reading config file because it is a temp file", :config_file => file)
             next
           end
 
@@ -123,7 +123,7 @@ module LogStash module Config module Source
       end
     end
 
-    PIPELINE_ID = :main
+    PIPELINE_ID = LogStash::SETTINGS.get("pipeline.id").to_sym
     HTTP_RE = /^http(s)?/
     INPUT_BLOCK_RE = /input *{/
     OUTPUT_BLOCK_RE = /output *{/
@@ -135,11 +135,9 @@ module LogStash module Config module Source
     def pipeline_configs
       config_parts = []
 
-      config_parts << ConfigStringLoader.read(config_string) if config_string?
-      config_parts << ConfigPathLoader.read(config_path) if local_config?
-      config_parts << ConfigRemoteLoader.read(config_path) if remote_config?
-
-      config_parts.flatten!
+      config_parts.concat(ConfigStringLoader.read(config_string)) if config_string?
+      config_parts.concat(ConfigPathLoader.read(config_path)) if local_config?
+      config_part.concat(ConfigRemoteLoader.read(config_path)) if remote_config?
 
       add_missing_default_inputs_or_outputs(config_parts)
 
