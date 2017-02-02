@@ -13,7 +13,7 @@ module LogStash module PipelineAction
     end
 
     def <=>(other)
-      ORDERING.index(self.class) <=> ORDERING.index(other.class)
+      (ORDERING.index(self.class) <=> ORDERING.index(other.class)).nonzero? || self.pipeline_id <=> other.pipeline_id
     end
   end
 end end
