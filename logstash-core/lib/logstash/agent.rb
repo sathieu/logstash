@@ -88,11 +88,8 @@ class LogStash::Agent
     end
   end
 
-  def converge_state
+  def converge_state(pipeline_configs)
     logger.info("Converging pipelines")
-
-    # TODO(ph): Response status
-    pipeline_configs = @source_loader.fetch
 
     converge_result = LogStash::ConvergeResult.new
 
@@ -132,7 +129,8 @@ class LogStash::Agent
   end
 
   def converge_state_and_update
-    converge_result = converge_state
+    pipeline_configs = @source_loader.fetch
+    converge_result = converge_state(pipeline_configs)
     update_metrics(converge_result)
   end
 
