@@ -1,5 +1,7 @@
 # encoding: utf-8
 require "logstash/pipeline_action/base"
+require "logstash/pipeline"
+require "thread"
 
 module LogStash module PipelineAction
   class Create < Base
