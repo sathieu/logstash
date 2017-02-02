@@ -24,3 +24,18 @@ def mock_settings(settings_values)
 
   settings
 end
+
+def mock_pipeline(pipeline_id, reloadable = true, config_hash = nil)
+  config_string = "input { stdin { id => '#{pipeline_id}' }}"
+  settings = mock_settings("pipeline.id" => pipeline_id.to_s, "config.string" => config_string)
+  pipeline = LogStash::Pipeline.new(config_string, settings)
+  allow(pipeline).to receive(:reloadable?).and_return(true) if !reloadable
+  pipeline
+end
+
+def mock_pipeline_config(pipeline_id, config_string = nil)
+  config_string = "input { stdin { id => '#{pipeline_id}' }}" if config_string.nil?
+  config_part = LogStash::Config::ConfigPart.new(:config_string, "config_string", config_string)
+  LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings({}))
+end
+

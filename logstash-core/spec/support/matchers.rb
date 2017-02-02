@@ -28,3 +28,21 @@ RSpec::Matchers.define :implement_interface_of do |type, key, value|
     "Expecting `#{expected}` to implements instance methods of `#{actual}`, missing methods: #{missing_methods.join(",")}"
   end
 end
+
+RSpec::Matchers.define :have_actions do |*expected|
+  match do |actual|
+    expect(actual.size).to eq(expected.size)
+
+    expected_values = expected.each_with_object([]) do |i, obj|
+      klass_name = "LogStash::PipelineAction::#{i.first.capitalize}"
+      obj << [klass_name, i.last]
+    end
+
+    actual_values = actual.each_with_object([]) do |i, obj|
+      klass_name = i.class.name
+      obj << [klass_name, i.pipeline_id]
+    end
+
+    values_match? expected_values, actual_values
+  end
+end

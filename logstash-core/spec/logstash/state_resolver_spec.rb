@@ -9,39 +9,6 @@ require "logstash/pipeline"
 require "ostruct"
 require "digest"
 
-
-def mock_pipeline(pipeline_id, reloadable = true, config_hash = nil)
-  config_string = "input { stdin { id => '#{pipeline_id}' }}"
-  settings = mock_settings("pipeline.id" => pipeline_id.to_s, "config.string" => config_string)
-  pipeline = LogStash::Pipeline.new(config_string, settings)
-  allow(pipeline).to receive(:reloadable?).and_return(true) if !reloadable
-  pipeline
-end
-
-def mock_pipeline_config(pipeline_id, config_string = nil)
-  config_string = "input { stdin { id => '#{pipeline_id}' }}" if config_string.nil?
-  config_part = LogStash::Config::ConfigPart.new(:config_string, "config_string", config_string)
-  LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings({}))
-end
-
-RSpec::Matchers.define :have_actions do |*expected|
-  match do |actual|
-    expect(actual.size).to eq(expected.size)
-
-    expected_values = expected.each_with_object([]) do |i, obj|
-      klass_name = "LogStash::PipelineAction::#{i.first.capitalize}"
-      obj << [klass_name, i.last]
-    end
-
-    actual_values = actual.each_with_object([]) do |i, obj|
-      klass_name = i.class.name
-      obj << [klass_name, i.pipeline_id]
-    end
-
-    values_match? expected_values, actual_values
-  end
-end
-
 describe LogStash::StateResolver do
   subject { described_class.new(metric) }
   let(:metric) { LogStash::Instrument::NullMetric.new }
