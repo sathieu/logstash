@@ -7,8 +7,6 @@ require "logstash/util/loggable"
 
 module LogStash module PipelineAction
   class Reload < Base
-    class NonReloadablePipelineError < StandardError; end
-
     include LogStash::Util::Loggable
 
     def initialize(pipeline_config, metric)
@@ -26,7 +24,7 @@ module LogStash module PipelineAction
     # since its not consistent and we are not able to converge.
     def execute(pipelines)
       old_pipeline = pipelines[pipeline_id]
-      raise NonReloadablePipelineError, "Cannot reload pipeline: #{pipeline_id}" unless old_pipeline.reloadable?
+      raise LogStash::NonReloadablePipelineError, "Cannot reload pipeline: #{pipeline_id}" unless old_pipeline.reloadable?
 
       # TODO(ph): Look at colin implementation changes for reload
       Stop.new(pipeline_id).execute(pipelines)
