@@ -3,10 +3,13 @@ require "logstash/pipeline_action/base"
 require "logstash/pipeline_action/create"
 require "logstash/pipeline_action/stop"
 require "logstash/errors"
+require "logstash/util/loggable"
 
 module LogStash module PipelineAction
   class Reload < Create
     class NonReloadablePipelineError < StandardError; end
+
+    include LogStash::Util::Loggable
 
     def initialize(pipeline_config, metric)
       super
@@ -24,8 +27,9 @@ module LogStash module PipelineAction
       old_pipeline = pipelines[pipeline_id]
       raise NonReloadablePipelineError, "Cannot reload pipeline: #{pipeline_id}" unless old_pipeline.reloadable?
 
-      pipeline = create_pipeline
       Stop.new(pipeline_id).execute(pipelines)
+
+      pipeline = create_pipeline
       t = spawn(pipeline)
       wait_until_started(pipeline, t)
       pipelines[pipeline_id] = pipeline # The pipeline is successfully started we can add it to the hash
