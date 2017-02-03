@@ -202,6 +202,55 @@ module LogStash; class Pipeline < BasePipeline
     return @filters.any?
   end
 
+  def start
+    collector = @metric.collector
+
+    # TODO(ph): I think the metric should also proxy that call correctly to the collector
+    # this will simplify everything since the null metric would simply just do a noop
+    unless collector.nil?
+      # selectively reset metrics we don't wish to keep after reloading
+      # these include metrics about the plugins and number of processed events
+      # we want to keep other metrics like reload counts and error messages
+      collector.clear("stats/pipelines/#{pipeline_id}/plugins")
+      collector.clear("stats/pipelines/#{pipeline_id}/events")
+    end
+    collect_stats
+
+    # Since we start lets assume that the metric namespace is cleared
+    # this is useful in the context of pipeline reloading
+
+    logger.debug("Starting pipeline", :pipeline_id => pipeline_id)
+
+    thread = Thread.new do
+      begin
+        LogStash::Util.set_thread_name("pipeline.#{pipeline_id}")
+        run
+      rescue => e
+        logger.error("Pipeline aborted due to error", :exception => e, :backtrace => e.backtrace)
+      end
+    end
+
+    status = wait_until_started(thread)
+
+    if status
+      logger.debug("Pipeline started succesfully", :pipeline_id => pipeline_id)
+    end
+
+    status
+  end
+
+  def wait_until_started(thread)
+    while true do
+      if !thread.alive?
+        return false
+      elsif running?
+        return true
+      else
+        sleep 0.01
+      end
+    end
+  end
+
   def run
     @started_at = Time.now
 

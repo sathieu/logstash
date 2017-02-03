@@ -56,6 +56,8 @@ class LogStash::Agent
     # Create the collectors and configured it with the library
     configure_metrics_collectors
 
+    @state_resolver = LogStash::StateResolver.new(metric)
+
     @pipeline_reload_metric = metric.namespace([:stats, :pipelines])
     @instance_reload_metric = metric.namespace([:stats, :reloads])
 
@@ -66,18 +68,25 @@ class LogStash::Agent
 
   def execute
     @thread = Thread.current # this var is implicilty used by Stud.stop?
-    @logger.debug("starting agent")
+    logger.debug("starting agent")
 
     # Start what need to be run
     converge_state_and_update
     start_webserver
 
-    return 1 if clean_state?
-
     if @auto_reload
       # `sleep_then_run` instead of firing the interval right away
       Stud.interval(@reload_interval, :sleep_then_run => true) { converge_state_and_update }
     else
+      # If we don't have any pipelines at this point we assume that the current logstash
+      # config is bad and all of the pipeline died.
+      #
+      # We assume that we cannot recover from that scenario and quit logstash
+      #
+      # TODO(ph): I am not sure if this is the best solution when we are running in a context of multiples
+      # pipelines.
+      return 1 if clean_state
+
       while !Stud.stop?
         if clean_state? || running_pipelines?
           sleep 0.5
@@ -88,6 +97,16 @@ class LogStash::Agent
     end
   end
 
+  # This is a big of a change at how we used to deal with the sequence of event,
+  # instead we depends on a series of task derived from the internal state and what
+  # need to be run, theses action are applied to the current pipelines to converge to
+  # the desired state.
+  #
+  # The current actions are simple and favor composition, allow us to experiment with different
+  # way to making them and also test them in isolation with the current running agent.
+  #
+  # Currently only action related to pipeline exist, but nothing prevent us to use the same logic
+  # for other tasks.
   def converge_state(pipeline_configs)
     logger.info("Converging pipelines")
 
@@ -103,26 +122,45 @@ class LogStash::Agent
       pipeline_actions.each do |action|
         begin
           logger.info("Executing action", :action => action)
-          action.execute(@pipelines)
-          converge_result.add_successful_action(action)
+
+          if status = action.execute(@pipelines)
+            converge_result.add_successful_action(action)
+          else
+            # The API expect to be able to display a meaningful exception,
+            # So we generate one based on the current action.
+            #
+            # - Syntax issues will be pickup up by the rescue blog
+            # - Register problem will fall here:
+            #     - In the API we will see the `PipelineActionError`
+            #     - In the log we will see both the error generated in the thread by the #run method
+            #
+            # Until we have a more robust, validation it will make the code harder without any coupling
+            exception = LogStash::PipelineActionError.new("Could not successfully execute: #{action}")
+            logger.error(exception.message)
+            converge_result.add_fail_action(action, exception)
+          end
         rescue => e
-          logger.error("Failed to execute action",
-                       :action => action,
-                       :exception => e.class.name,
-                       :message => e.message)
+          logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
 
           converge_result.add_fail_action(action, e)
         end
       end
 
       if converge_result.success?
-        logger.info("Pipeline successfully synced")
+        logger.info("Converge successful")
       else
         logger.error("Could not execute all the required actions",
                      :failed_actions_count => converge_result.fails_count,
                      :total => converge_result.total)
 
       end
+    end
+
+    number_of_running_pipeline = running_pipelines.size
+    if number_of_running_pipeline.size > 0
+      logger.info("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
+    else
+      logger.info("No pipeline are currently running")
     end
 
     converge_result
@@ -217,8 +255,7 @@ class LogStash::Agent
 
   private
   def resolve_actions(pipeline_configs)
-    # TODO(ph): move in the initialize
-    LogStash::StateResolver.new(metric).resolve(@pipelines, pipeline_configs)
+    @state_resolver.resolve(@pipelines, pipeline_configs)
   end
 
   def start_webserver
@@ -274,25 +311,27 @@ class LogStash::Agent
     @settings.get(key)
   end
 
+  # Methods related to the creation of all metrics
+  # related to states changes and failures
   def update_metrics(converge_result)
     converge_result.failed_actions.each do |result|
       update_failures_metrics(result.action, result.exception)
     end
 
     converge_result.successful_actions do |action|
-      update_failures_metrics(action)
+      update_success_metrics(action)
     end
   end
 
   def update_success_metrics(action)
     if action.is_a?(LogStash::PipelineAction::Reload)
-      record_succesfull_reload(action)
+      update_successful_reload_metrics(action)
     elsif action.is_a?(LogStash::PipelineAction::Create)
-      record_succesfull_create_metrics(action)
+      initialize_metrics(action)
     end
   end
 
-  def update_successfull_create_metrics(action)
+  def initialize_metrics(action)
     @instance_reload_metric.increment(:successes, 0)
     @instance_reload_metric.increment(:failures, 0)
 
@@ -305,7 +344,7 @@ class LogStash::Agent
     end
   end
 
-  def update_succesfull_reload_metrics(action)
+  def update_successful_reload_metrics(action)
     @instance_reload_metric.increment(:successes)
 
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
@@ -314,7 +353,7 @@ class LogStash::Agent
     end
   end
 
-  def update_record_failures_metrics(action, exception)
+  def update_failures_metrics(action, exception)
     @instance_reload_metric.increment(:failures)
 
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|

@@ -12,7 +12,6 @@ module LogStash module PipelineAction
     def execute(pipelines)
       pipeline = pipelines[pipeline_id]
       pipeline.shutdown { LogStash::ShutdownWatcher.start(pipeline) }
-      pipeline.thread.join
     end
   end
 end end

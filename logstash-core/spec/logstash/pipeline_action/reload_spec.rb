@@ -1,6 +1,6 @@
 # encoding: utf-8
 require "spec_helper"
-require_relative "../support/helpers"
+require_relative "../../support/helpers"
 require "logstash/pipeline_action/reload"
 require "logstash/instrument/null_metric"
 
