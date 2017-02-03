@@ -98,7 +98,7 @@ class LogStash::Agent
 
   # This is a big of a change at how we used to deal with the sequence of event,
   # instead we depends on a series of task derived from the internal state and what
-  # need to be run, theses action are applied to the current pipelines to converge to
+  # need to be run, theses actions are applied to the current pipelines to converge to
   # the desired state.
   #
   # The current actions are simple and favor composition, allow us to experiment with different
@@ -133,7 +133,7 @@ class LogStash::Agent
             #     - In the API we will see the `PipelineActionError`
             #     - In the log we will see both the error generated in the thread by the #run method
             #
-            # Until we have a more robust, validation it will make the code harder without any coupling
+            # Until we have a more robust validation it will make the code harder without any coupling
             exception = LogStash::PipelineActionError.new("Could not successfully execute: #{action}")
             logger.error(exception.message)
             converge_result.add_fail_action(action, exception)

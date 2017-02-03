@@ -67,7 +67,8 @@ describe LogStash::Agent do
         expect(arg1).to eq(config_string)
         expect(arg2.to_hash).to include(agent_args)
       end
-      subject.register_pipeline(agent_settings)
+
+      subject.converge_state_and_update
     end
   end
 
@@ -278,16 +279,25 @@ describe LogStash::Agent do
   end
 
   describe "#reload_state!" do
-    let(:first_pipeline_config) { "input { } filter { } output { }" }
-    let(:second_pipeline_config) { "input { generator {} } filter { } output { }" }
+    let(:mock_source) { double("SourceLoader", :fetch => [mock_pipeline_config(:main, first_pipeline_config)]) }
+
+    let(:first_pipeline_config) { "input { generator { id => '1'} } filter { } output { }" }
+    let(:second_pipeline_config) { "input { generator { id => '2' } } filter { } output { }" }
+
     let(:agent_args) { {
       "config.string" => first_pipeline_config,
       "pipeline.workers" => 4,
       "config.reload.automatic" => true
     } }
 
+    subject { LogStash::Agent.new(agent_settings, mock_source) }
+
     before(:each) do
-      subject.register_pipeline(pipeline_settings)
+      subject.converge_state_and_update
+    end
+
+    after(:each) do
+      subject.shutdown
     end
 
     after(:each) do
@@ -296,27 +306,40 @@ describe LogStash::Agent do
 
     context "when fetching a new state" do
       it "upgrades the state" do
-        expect(subject).to receive(:fetch_config).and_return(create_pipeline_config(second_pipeline_config))
-        expect(subject).to receive(:upgrade_pipeline).with(default_pipeline_id, kind_of(LogStash::Pipeline))
-        subject.reload_state!
+        expect(subject.pipelines[:main].running?).to be_truthy
+        pipeline_config = mock_pipeline_config(:main, second_pipeline_config)
+        expect(mock_source).to receive(:fetch).and_return([pipeline_config])
+        subject.converge_state_and_update
+        expect(subject.pipelines[:main].running?).to be_truthy
+        expect(subject.pipelines[:main].config_hash).to match(pipeline_config.config_hash)
       end
     end
+
     context "when fetching the same state" do
       it "doesn't upgrade the state" do
-        expect(subject).to receive(:fetch_config).and_return(create_pipeline_config(first_pipeline_config))
-        expect(subject).to_not receive(:upgrade_pipeline)
-        subject.reload_state!
+        expect(subject.pipelines[:main].running?).to be_truthy
+        old_pipeline = subject.pipelines[:main]
+        subject.converge_state_and_update
+        expect(subject.pipelines[:main]).to eq(old_pipeline)
+        expect(subject.pipelines[:main].running?).to be_truthy
       end
     end
   end
 
   describe "Environment Variables In Configs" do
+    let(:mock_source) { double("SourceLoader", :fetch => [mock_pipeline_config(:main, pipeline_config)]) }
     let(:pipeline_config) { "input { generator { message => '${FOO}-bar' } } filter { } output { }" }
     let(:agent_args) { {
       "config.reload.automatic" => false,
       "config.reload.interval" => 0.01,
       "config.string" => pipeline_config
     } }
+
+    subject { LogStash::Agent.new(agent_settings, mock_source) }
+
+    after(:each) do
+      subject.shutdown
+    end
 
     context "environment variable templating" do
       before :each do
@@ -330,15 +353,19 @@ describe LogStash::Agent do
       end
 
       it "doesn't upgrade the state" do
-        allow(subject).to receive(:fetch_config).and_return(create_pipeline_config(pipeline_config))
-        subject.register_pipeline(pipeline_settings)
-        expect(subject.pipelines[default_pipeline_id].inputs.first.message).to eq("foo-bar")
+        # In this case the config_hash will be the same, since the environment variable are replaced post-process
+        subject.converge_state_and_update
+        expect(subject.pipelines[:main].running?).to be_truthy
+        old_pipeline = subject.pipelines[:main]
+        subject.converge_state_and_update
+        expect(subject.pipelines[:main]).to eq(old_pipeline)
+        expect(subject.pipelines[:main].running?).to be_truthy
       end
     end
   end
 
   describe "#upgrade_pipeline" do
-    let(:pipeline_config) { "input { } filter { } output { }" }
+    let(:pipeline_config) { "input { generator  { id => 'original' } } filter { } output { }" }
     let(:agent_args) { {
       "config.string" => pipeline_config,
       "pipeline.workers" => 4
@@ -346,7 +373,7 @@ describe LogStash::Agent do
     let(:new_pipeline_config) { "input { generator {} } output { }" }
 
     before(:each) do
-      subject.register_pipeline(pipeline_settings)
+      subject.converge_state_and_update
     end
 
     after(:each) do
@@ -355,7 +382,11 @@ describe LogStash::Agent do
       subject.close_pipelines
     end
 
-    context "when the upgrade fails" do
+    subject { LogStash::Agent.new(agent_settings, mock_source) }
+
+    # TODO(ph): To make it true without using mock I need colin changes from
+    # https://github.com/elastic/logstash/pull/6631
+    xcontext "when the upgrade fails" do
       before :each do
         allow(subject).to receive(:fetch_config).and_return(create_pipeline_config(new_pipeline_config))
         allow(subject).to receive(:create_pipeline).and_return(nil)
@@ -367,6 +398,7 @@ describe LogStash::Agent do
       end
 
       it "leaves the state untouched" do
+        expect_any_instance_of(LogStash::Pipeline)
         subject.send(:"reload_pipeline!", default_pipeline_id)
         expect(subject.pipelines[default_pipeline_id].config_str).to eq(pipeline_config)
       end
@@ -380,27 +412,16 @@ describe LogStash::Agent do
     end
 
     context "when the upgrade succeeds" do
-      let(:new_config) { "input { generator { count => 1 } } output { }" }
-
-      before :each do
-        allow(subject).to receive(:fetch_config).and_return(create_pipeline_config(new_config))
-        allow(subject).to receive(:stop_pipeline)
-        allow(subject).to receive(:start_pipeline)
-      end
+      let(:mock_source) { double("SourceLoader", :fetch => [mock_pipeline_config(default_pipeline_id, pipeline_config)]) }
+      let(:new_config) { "input { generator { id => 'new'  } } output { }" }
 
       it "updates the state" do
-        subject.send(:"reload_pipeline!", default_pipeline_id)
-        expect(subject.pipelines[default_pipeline_id].config_str).to eq(new_config)
-      end
+        allow(mock_source).to receive(:fetch).and_return([mock_pipeline_config(default_pipeline_id, new_config)])
+        subject.converge_state_and_update
+        new_pipeline = subject.pipelines[default_pipeline_id]
 
-      it "starts the pipeline" do
-        expect(subject).to receive(:start_pipeline).and_return(true)
-        expect(subject).to receive(:stop_pipeline) do |id|
-          # we register_pipeline but we never execute them so we have to mock #stop_pipeline to
-          # not call Pipeline#shutdown but Pipeline#close
-          subject.close_pipeline(id)
-        end
-        subject.send(:"reload_pipeline!", default_pipeline_id)
+        expect(new_pipeline.config_str).to eq(new_config)
+        expect(new_pipeline.running?).to be_truthy
       end
     end
   end
@@ -466,7 +487,9 @@ describe LogStash::Agent do
       @abort_on_exception = Thread.abort_on_exception
       Thread.abort_on_exception = true
 
-      pipeline_thread
+      @t = Thread.new do
+        subject.execute
+      end
 
       # wait for some events to reach the dummy_output
       sleep(0.1) until dummy_output.events_received > initial_generator_threshold
@@ -492,7 +515,7 @@ describe LogStash::Agent do
           f.fsync
         end
 
-        subject.send(:"reload_pipeline!", "main")
+        subject.converge_state_and_update
 
         # wait until pipeline restarts
         sleep(0.01) until dummy_output2.events_received > 0
@@ -546,7 +569,7 @@ describe LogStash::Agent do
           f.fsync
         end
 
-        subject.send(:"reload_pipeline!", "main")
+        subject.converge_state_and_update
       end
 
       it "does not increase the successful reload count" do

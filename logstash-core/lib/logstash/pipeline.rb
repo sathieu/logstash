@@ -203,17 +203,7 @@ module LogStash; class Pipeline < BasePipeline
   end
 
   def start
-    collector = @metric.collector
-
-    # TODO(ph): I think the metric should also proxy that call correctly to the collector
-    # this will simplify everything since the null metric would simply just do a noop
-    unless collector.nil?
-      # selectively reset metrics we don't wish to keep after reloading
-      # these include metrics about the plugins and number of processed events
-      # we want to keep other metrics like reload counts and error messages
-      collector.clear("stats/pipelines/#{pipeline_id}/plugins")
-      collector.clear("stats/pipelines/#{pipeline_id}/events")
-    end
+    clear_pipeline_metrics
     collect_stats
 
     # Since we start lets assume that the metric namespace is cleared
@@ -527,6 +517,9 @@ module LogStash; class Pipeline < BasePipeline
     @logger.debug "Closing inputs"
     @inputs.each(&:do_stop)
     @logger.debug "Closed inputs"
+
+    transition_to_stopped
+    clear_pipeline_metrics
   end # def shutdown
 
   # After `shutdown` is called from an external thread this is called from the main thread to
@@ -649,6 +642,20 @@ module LogStash; class Pipeline < BasePipeline
       end
 
       pipeline_metric.gauge(:events, queue.unread_count)
+    end
+  end
+
+  def clear_pipeline_metrics
+    # TODO(ph): I think the metric should also proxy that call correctly to the collector
+    # this will simplify everything since the null metric would simply just do a noop
+    collector = @metric.collector
+
+    unless collector.nil?
+      # selectively reset metrics we don't wish to keep after reloading
+      # these include metrics about the plugins and number of processed events
+      # we want to keep other metrics like reload counts and error messages
+      collector.clear("stats/pipelines/#{pipeline_id}/plugins")
+      collector.clear("stats/pipelines/#{pipeline_id}/events")
     end
   end
 
