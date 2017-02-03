@@ -33,7 +33,7 @@ class LogStash::Agent
   #   :name [String] - identifier for the agent
   #   :auto_reload [Boolean] - enable reloading of pipelines
   #   :reload_interval [Integer] - reload pipelines every X seconds
-  def initialize(settings = LogStash::SETTINGS, source_loader = LogStash::Config::SOURCE_LOADER.create(LogStash::SETTINGS))
+  def initialize(settings = LogStash::SETTINGS, source_loader = nil)
     @logger = self.class.logger
     @settings = settings
     @auto_reload = setting("config.reload.automatic")
@@ -46,7 +46,7 @@ class LogStash::Agent
     # Generate / load the persistent uuid
     id
 
-    @source_loader = source_loader
+    @source_loader = source_loader.nil? ? LogStash::Config::SOURCE_LOADER.create(settings) : source_loader
 
     @reload_interval = setting("config.reload.interval")
     @pipelines_mutex = Mutex.new
@@ -70,9 +70,8 @@ class LogStash::Agent
     @thread = Thread.current # this var is implicilty used by Stud.stop?
     logger.debug("starting agent")
 
-    # Start what need to be run
-    converge_state_and_update
     start_webserver
+    converge_state_and_update
 
     if @auto_reload
       # `sleep_then_run` instead of firing the interval right away
@@ -85,7 +84,7 @@ class LogStash::Agent
       #
       # TODO(ph): I am not sure if this is the best solution when we are running in a context of multiples
       # pipelines.
-      return 1 if clean_state
+      return 1 if clean_state?
 
       while !Stud.stop?
         if clean_state? || running_pipelines?
@@ -284,8 +283,7 @@ class LogStash::Agent
     @periodic_pollers = LogStash::Instrument::PeriodicPollers.new(@metric,
                                                                   settings.get("queue.type"),
                                                                   self)
-    # TODO(ph): reenable
-    # @periodic_pollers.start
+    @periodic_pollers.start
   end
 
   def collect_metrics?
@@ -318,16 +316,17 @@ class LogStash::Agent
       update_failures_metrics(result.action, result.exception)
     end
 
-    converge_result.successful_actions do |action|
+    converge_result.successful_actions.each do |action|
       update_success_metrics(action)
     end
   end
 
   def update_success_metrics(action)
-    if action.is_a?(LogStash::PipelineAction::Reload)
-      update_successful_reload_metrics(action)
-    elsif action.is_a?(LogStash::PipelineAction::Create)
-      initialize_metrics(action)
+    case action
+      when LogStash::PipelineAction::Create
+        initialize_metrics(action)
+      when LogStash::PipelineAction::Reload
+        update_successful_reload_metrics(action)
     end
   end
 
