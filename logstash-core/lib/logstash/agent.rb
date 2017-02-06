@@ -292,6 +292,8 @@ class LogStash::Agent
   end
 
   def shutdown_pipelines
+    # In this context I could just call shutdown, but I've decided to
+    # use the stop action implementation for that so we have the same code.
     @pipelines_mutex.synchronize do
       @pipelines.keys.each { |pipeline_id| LogStash::PipelineAction::Stop.new(pipeline_id).execute(@pipelines) }
     end
@@ -312,6 +314,9 @@ class LogStash::Agent
 
   # Methods related to the creation of all metrics
   # related to states changes and failures
+  #
+  # I think we could an observer here to decouple the metrics, but moving the code
+  # into separate function is the first step we take.
   def update_metrics(converge_result)
     converge_result.failed_actions.each do |result|
       update_failures_metrics(result.action, result.exception)
