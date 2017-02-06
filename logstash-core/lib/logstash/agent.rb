@@ -316,14 +316,14 @@ class LogStash::Agent
     end
   end
 
-  def update_success_metrics(action)
+  def update_success_metrics(action, action_result)
     case action
       when LogStash::PipelineAction::Create
         # When a pipeline is successfully created we create the metric
         # place holder related to the lifecycle of the pipeline
         initialize_pipeline_metrics(action)
       when LogStash::PipelineAction::Reload
-        update_successful_reload_metrics(action)
+        update_successful_reload_metrics(action, action_result)
     end
   end
 
