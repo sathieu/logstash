@@ -97,12 +97,11 @@ class LogStash::Agent
     end
   end
 
-  # This is a big of a change at how we used to deal with the sequence of event,
-  # instead we depends on a series of task derived from the internal state and what
+  # We depends on a series of task derived from the internal state and what
   # need to be run, theses actions are applied to the current pipelines to converge to
   # the desired state.
   #
-  # The current actions are simple and favor composition, allow us to experiment with different
+  # The current actions are simple and favor composition, allowing us to experiment with different
   # way to making them and also test them in isolation with the current running agent.
   #
   # Currently only action related to pipeline exist, but nothing prevent us to use the same logic
@@ -110,52 +109,45 @@ class LogStash::Agent
   def converge_state(pipeline_configs)
     logger.info("Converging pipelines")
 
-    converge_result = LogStash::ConvergeResult.new
-
-    # We Lock any access on the pipelines, since the action will modify the
+    # We Lock any access on the pipelines, since the actions will modify the
     # content of it.
     @pipelines_mutex.synchronize do
       pipeline_actions = resolve_actions(pipeline_configs)
+      converge_result = LogStash::ConvergeResult.new(pipeline_actions.size)
 
       logger.info("Needed actions to converge", :actions_count => pipeline_actions.size) unless pipeline_actions.empty?
 
       pipeline_actions.each do |action|
+        # We execute every task we need to converge the current state of pipelines
+        # for every task we will record the action result, that will help us
+        # the results of all the task will determine if the converge was successful or not
+        #
+        # The ConvergeResult#add, will accept the following values
+        #  - boolean
+        #  - FailedAction
+        #  - SuccessfulAction
+        #  - Exception
+        #
+        # This give us a bit more extensibility with the current startup/validation model
+        # that we currently have.
         begin
           logger.info("Executing action", :action => action)
-
-          if status = action.execute(@pipelines)
-            converge_result.add_successful_action(action)
-          else
-            # The API expect to be able to display a meaningful exception,
-            # So we generate one based on the current action.
-            #
-            # - Syntax issues will be pickup up by the rescue blog
-            # - Register problem will fall here:
-            #     - In the API we will see the `PipelineActionError`
-            #     - In the log we will see both the error generated in the thread by the #run method
-            #
-            # Until we have a more robust validation it will make the code harder without any coupling
-            exception = LogStash::PipelineActionError.new("Could not successfully execute: #{action}")
-            logger.error(exception.message)
-            converge_result.add_fail_action(action, exception)
-          end
-        rescue => e
+          action_result = action.execute(@pipelines)
+          converge_result.add(action, action_result)
+        rescue Exception => e
           logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
-
-          converge_result.add_fail_action(action, e)
+          converge_result.add(action, e)
         end
       end
 
       converge_result
     end
-
-    converge_result
   end
 
   def converge_state_and_update
     pipeline_configs = @source_loader.fetch
     converge_result = converge_state(pipeline_configs)
-    log_currently_running_pipelines
+    report_currently_running_pipelines
     update_metrics(converge_result)
   end
 
@@ -241,7 +233,7 @@ class LogStash::Agent
   end
 
   private
-  def log_currently_running_pipelines
+  def report_currently_running_pipelines
     number_of_running_pipeline = running_pipelines.size
 
     if number_of_running_pipeline.size > 0
@@ -315,12 +307,12 @@ class LogStash::Agent
   # I think we could an observer here to decouple the metrics, but moving the code
   # into separate function is the first step we take.
   def update_metrics(converge_result)
-    converge_result.failed_actions.each do |result|
-      update_failures_metrics(result.action, result.exception)
+    converge_result.failed_actions.each do |action, action_result|
+      update_failures_metrics(action, action_result)
     end
 
-    converge_result.successful_actions.each do |action|
-      update_success_metrics(action)
+    converge_result.successful_actions.each do |action, action_result|
+      update_success_metrics(action, action_result)
     end
   end
 
@@ -350,21 +342,22 @@ class LogStash::Agent
     end
   end
 
-  def update_successful_reload_metrics(action)
+  def update_successful_reload_metrics(action, action_result)
     @instance_reload_metric.increment(:successes)
 
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
       n.increment(:successes)
-      n.gauge(:last_success_timestamp, LogStash::Timestamp.now)
+      n.gauge(:last_success_timestamp, action_result.executed_at)
     end
   end
 
-  def update_failures_metrics(action, exception)
+  def update_failures_metrics(action, action_result)
     @instance_reload_metric.increment(:failures)
 
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
       n.increment(:failures)
-      n.gauge(:last_error, { :message => exception.message, :backtrace => exception.backtrace})
+      # TODO(ph): I am not sure we should expose the backtrace in the API
+      n.gauge(:last_error, { :message => action_result.message, :backtrace => action_result.backtrace})
       n.gauge(:last_failure_timestamp, LogStash::Timestamp.now)
     end
   end
