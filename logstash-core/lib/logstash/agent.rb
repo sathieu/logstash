@@ -146,21 +146,7 @@ class LogStash::Agent
         end
       end
 
-      if converge_result.success?
-        logger.info("Converge successful")
-      else
-        logger.error("Could not execute all the required actions",
-                     :failed_actions_count => converge_result.fails_count,
-                     :total => converge_result.total)
-
-      end
-    end
-
-    number_of_running_pipeline = running_pipelines.size
-    if number_of_running_pipeline.size > 0
-      logger.info("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
-    else
-      logger.info("No pipeline are currently running")
+      converge_result
     end
 
     converge_result
@@ -169,6 +155,7 @@ class LogStash::Agent
   def converge_state_and_update
     pipeline_configs = @source_loader.fetch
     converge_result = converge_state(pipeline_configs)
+    log_currently_running_pipelines
     update_metrics(converge_result)
   end
 
@@ -254,6 +241,16 @@ class LogStash::Agent
   end
 
   private
+  def log_currently_running_pipelines
+    number_of_running_pipeline = running_pipelines.size
+
+    if number_of_running_pipeline.size > 0
+      logger.info("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
+    else
+      logger.info("No pipeline are currently running")
+    end
+  end
+
   def resolve_actions(pipeline_configs)
     @state_resolver.resolve(@pipelines, pipeline_configs)
   end
