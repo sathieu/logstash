@@ -2,16 +2,19 @@
 require "spec_helper"
 require_relative "../../support/helpers"
 require "logstash/pipeline_action/create"
-require "logstash/Instrument/collector"
 require "logstash/instrument/null_metric"
 require "logstash/inputs/generator"
 
 describe LogStash::PipelineAction::Create do
   let(:metric) { LogStash::Instrument::NullMetric.new(LogStash::Instrument::Collector.new) }
-  let(:pipeline_config) { mock_pipeline_config(:main, "input { generator { id => '123' } } output { stdout {} }") }
+  let(:pipeline_config) { mock_pipeline_config(:main, "input { generator { id => '123' } } output { null {} }") }
   let(:pipelines) {  Hash.new }
 
   subject { described_class.new(pipeline_config, metric) }
+
+  after do
+    pipelines.each { |_, pipeline| pipeline.shutdown }
+  end
 
   it "returns the pipeline_id" do
     expect(subject.pipeline_id).to eq(:main)

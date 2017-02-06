@@ -60,6 +60,7 @@ class LogStash::Agent
 
     @pipeline_reload_metric = metric.namespace([:stats, :pipelines])
     @instance_reload_metric = metric.namespace([:stats, :reloads])
+    initialize_agent_metrics
 
     @dispatcher = LogStash::EventDispatcher.new(self)
     LogStash::PLUGIN_REGISTRY.hooks.register_emitter(self.class, dispatcher)
@@ -324,16 +325,20 @@ class LogStash::Agent
   def update_success_metrics(action)
     case action
       when LogStash::PipelineAction::Create
-        initialize_metrics(action)
+        # When a pipeline is successfully created we create the metric
+        # place holder related to the lifecycle of the pipeline
+        initialize_pipeline_metrics(action)
       when LogStash::PipelineAction::Reload
         update_successful_reload_metrics(action)
     end
   end
 
-  def initialize_metrics(action)
+  def initialize_agent_metrics
     @instance_reload_metric.increment(:successes, 0)
     @instance_reload_metric.increment(:failures, 0)
+  end
 
+  def initialize_pipeline_metrics(action)
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
       n.increment(:successes, 0)
       n.increment(:failures, 0)

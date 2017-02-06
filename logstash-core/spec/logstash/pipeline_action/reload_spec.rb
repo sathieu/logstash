@@ -7,8 +7,8 @@ require "logstash/instrument/null_metric"
 describe LogStash::PipelineAction::Reload do
   let(:metric) { LogStash::Instrument::NullMetric.new(LogStash::Instrument::Collector.new) }
   let(:pipeline_id) { :main }
-  let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input { generator { id => 'new' } }") }
-  let(:pipeline_config) { "input { generator {} } output { }" }
+  let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input { generator { id => 'new' } } output { null {} }") }
+  let(:pipeline_config) { "input { generator {} } output { null {} }" }
   let(:pipeline) { LogStash::Pipeline.new(pipeline_config) }
   let(:pipelines) { { pipeline_id => pipeline } }
 
@@ -16,6 +16,10 @@ describe LogStash::PipelineAction::Reload do
 
   before do
     pipeline.start
+  end
+
+  after do
+    pipelines.each { |_, pipeline| pipeline.shutdown }
   end
 
   it "returns the pipeline_id" do
