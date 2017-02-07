@@ -304,7 +304,7 @@ class LogStash::Agent
   # Methods related to the creation of all metrics
   # related to states changes and failures
   #
-  # I think we could an observer here to decouple the metrics, but moving the code
+  # I think we could use an observer here to decouple the metrics, but moving the code
   # into separate function is the first step we take.
   def update_metrics(converge_result)
     converge_result.failed_actions.each do |action, action_result|
