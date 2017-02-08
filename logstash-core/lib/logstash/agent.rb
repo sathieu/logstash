@@ -82,9 +82,6 @@ class LogStash::Agent
       # config is bad and all of the pipeline died.
       #
       # We assume that we cannot recover from that scenario and quit logstash
-      #
-      # TODO(ph): I am not sure if this is the best solution when we are running in a context of multiples
-      # pipelines.
       return 1 if clean_state?
 
       while !Stud.stop?
@@ -97,56 +94,22 @@ class LogStash::Agent
     end
   end
 
-  # We depends on a series of task derived from the internal state and what
-  # need to be run, theses actions are applied to the current pipelines to converge to
-  # the desired state.
-  #
-  # The current actions are simple and favor composition, allowing us to experiment with different
-  # way to making them and also test them in isolation with the current running agent.
-  #
-  # Currently only action related to pipeline exist, but nothing prevent us to use the same logic
-  # for other tasks.
-  def converge_state(pipeline_configs)
-    logger.info("Converging pipelines")
+  def converge_state_and_update
+    pipeline_configs = @source_loader.fetch
+
+    # TODO(ph) did we get the pipeline succesfully or not
+    # if the fetch fails we should log it but not reload the state
+
 
     # We Lock any access on the pipelines, since the actions will modify the
     # content of it.
+    converge_result = nil
+
     @pipelines_mutex.synchronize do
       pipeline_actions = resolve_actions(pipeline_configs)
-      converge_result = LogStash::ConvergeResult.new(pipeline_actions.size)
-
-      logger.info("Needed actions to converge", :actions_count => pipeline_actions.size) unless pipeline_actions.empty?
-
-      pipeline_actions.each do |action|
-        # We execute every task we need to converge the current state of pipelines
-        # for every task we will record the action result, that will help us
-        # the results of all the task will determine if the converge was successful or not
-        #
-        # The ConvergeResult#add, will accept the following values
-        #  - boolean
-        #  - FailedAction
-        #  - SuccessfulAction
-        #  - Exception
-        #
-        # This give us a bit more extensibility with the current startup/validation model
-        # that we currently have.
-        begin
-          logger.info("Executing action", :action => action)
-          action_result = action.execute(@pipelines)
-          converge_result.add(action, action_result)
-        rescue Exception => e
-          logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
-          converge_result.add(action, e)
-        end
-      end
-
-      converge_result
+      converge_result = converge_state(pipeline_actions)
     end
-  end
 
-  def converge_state_and_update
-    pipeline_configs = @source_loader.fetch
-    converge_result = converge_state(pipeline_configs)
     report_currently_running_pipelines
     update_metrics(converge_result)
   end
@@ -156,10 +119,6 @@ class LogStash::Agent
   # @return [Fixnum] Uptime in milliseconds
   def uptime
     ((Time.now.to_f - STARTED_AT.to_f) * 1000.0).to_i
-  end
-
-  def stop_collecting_metrics
-    @periodic_pollers.stop
   end
 
   def shutdown
@@ -202,8 +161,10 @@ class LogStash::Agent
     @id = uuid
   end
 
-  def id_path
-    @id_path ||= ::File.join(settings.get("path.data"), "uuid")
+  def get_pipeline(pipeline_id)
+    @pipelines_mutex.synchronize do
+      @pipelines[:pipeline_id]
+    end
   end
 
   def running_pipelines
@@ -233,6 +194,56 @@ class LogStash::Agent
   end
 
   private
+  def id_path
+    @id_path ||= ::File.join(settings.get("path.data"), "uuid")
+  end
+
+  # We depends on a series of task derived from the internal state and what
+  # need to be run, theses actions are applied to the current pipelines to converge to
+  # the desired state.
+  #
+  # The current actions are simple and favor composition, allowing us to experiment with different
+  # way to making them and also test them in isolation with the current running agent.
+  #
+  # Currently only action related to pipeline exist, but nothing prevent us to use the same logic
+  # for other tasks.
+  def converge_state(pipeline_actions)
+    logger.info("Converging pipelines")
+
+    converge_result = LogStash::ConvergeResult.new(pipeline_actions.size)
+
+    logger.info("Needed actions to converge", :actions_count => pipeline_actions.size) unless pipeline_actions.empty?
+
+    pipeline_actions.each do |action|
+      # We execute every task we need to converge the current state of pipelines
+      # for every task we will record the action result, that will help us
+      # the results of all the task will determine if the converge was successful or not
+      #
+      # The ConvergeResult#add, will accept the following values
+      #  - boolean
+      #  - FailedAction
+      #  - SuccessfulAction
+      #  - Exception
+      #
+      # This give us a bit more extensibility with the current startup/validation model
+      # that we currently have.
+      begin
+        logger.info("Executing action", :action => action)
+        action_result = action.execute(@pipelines)
+        converge_result.add(action, action_result)
+      rescue Exception => e
+        logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
+        converge_result.add(action, e)
+      end
+
+      converge_result
+    end
+  end
+
+  def resolve_actions(pipeline_configs)
+    @state_resolver.resolve(@pipelines, pipeline_configs)
+  end
+
   def report_currently_running_pipelines
     number_of_running_pipeline = running_pipelines.size
 
@@ -241,10 +252,6 @@ class LogStash::Agent
     else
       logger.info("No pipeline are currently running")
     end
-  end
-
-  def resolve_actions(pipeline_configs)
-    @state_resolver.resolve(@pipelines, pipeline_configs)
   end
 
   def start_webserver
@@ -270,10 +277,12 @@ class LogStash::Agent
       LogStash::Instrument::NullMetric.new(@collector)
     end
 
-    @periodic_pollers = LogStash::Instrument::PeriodicPollers.new(@metric,
-                                                                  settings.get("queue.type"),
-                                                                  self)
+    @periodic_pollers = LogStash::Instrument::PeriodicPollers.new(@metric, settings.get("queue.type"), self)
     @periodic_pollers.start
+  end
+
+  def stop_collecting_metrics
+    @periodic_pollers.stop
   end
 
   def collect_metrics?
@@ -327,6 +336,17 @@ class LogStash::Agent
     end
   end
 
+  def update_failures_metrics(action, action_result)
+    @instance_reload_metric.increment(:failures)
+
+    @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
+      n.increment(:failures)
+      # TODO(ph): I am not sure we should expose the backtrace in the API
+      n.gauge(:last_error, { :message => action_result.message, :backtrace => action_result.backtrace})
+      n.gauge(:last_failure_timestamp, LogStash::Timestamp.now)
+    end
+  end
+
   def initialize_agent_metrics
     @instance_reload_metric.increment(:successes, 0)
     @instance_reload_metric.increment(:failures, 0)
@@ -348,17 +368,6 @@ class LogStash::Agent
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
       n.increment(:successes)
       n.gauge(:last_success_timestamp, action_result.executed_at)
-    end
-  end
-
-  def update_failures_metrics(action, action_result)
-    @instance_reload_metric.increment(:failures)
-
-    @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
-      n.increment(:failures)
-      # TODO(ph): I am not sure we should expose the backtrace in the API
-      n.gauge(:last_error, { :message => action_result.message, :backtrace => action_result.backtrace})
-      n.gauge(:last_failure_timestamp, LogStash::Timestamp.now)
     end
   end
 end # class LogStash::Agent

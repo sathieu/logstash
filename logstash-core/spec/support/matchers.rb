@@ -46,3 +46,19 @@ RSpec::Matchers.define :have_actions do |*expected|
     values_match? expected_values, actual_values
   end
 end
+
+RSpec::Matchers.define :have_pipeline do |pipeline_id, pipeline_config = nil|
+  match do |agent|
+    pipeline = agent.get_pipeline(pipeline_id)
+    expect(pipeline).to_not be_nil
+    expect(pipeline.config_str).to eq(pipeline_config) unless pipeline_config.nil?
+  end
+end
+
+RSpec::Matchers.define :have_running_pipeline do |pipeline_id, pipeline_config = nil|
+  match do |agent|
+    pipeline = agent.get_pipeline(pipeline_id)
+    expect(pipeline.running?).to be_truthy
+    expect(agent).to have_pipeline(pipeline_id, pipeline_config)
+  end
+end
