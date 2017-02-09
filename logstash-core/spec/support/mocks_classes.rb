@@ -90,7 +90,7 @@ module LogStash
 end end
 
 
-# This class mimic the usage of `logstash/config/source_loader`
+# A Test Source loader will return the same configuration on every fetch call
 class TestSourceLoader
   def initialize(*responses)
     @count = Concurrent::AtomicFixnum.new(0)
@@ -108,6 +108,7 @@ end
   end
 end
 
+# This source loader will return a new configuration on very call until we ran out.
 class TestSequenceSourceLoader
   attr_reader :original_responses
 
@@ -121,7 +122,9 @@ class TestSequenceSourceLoader
 
   def fetch
     @count.increment
-    @responses_mutex.synchronize { @responses.shift }
+    response  = @responses_mutex.synchronize { @responses.shift }
+    raise "TestSequenceSourceLoader runs out of response" if response.nil?
+    response
   end
 
   def fetch_count
