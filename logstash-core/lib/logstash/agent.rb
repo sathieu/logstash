@@ -65,6 +65,8 @@ class LogStash::Agent
     @dispatcher = LogStash::EventDispatcher.new(self)
     LogStash::PLUGIN_REGISTRY.hooks.register_emitter(self.class, dispatcher)
     dispatcher.fire(:after_initialize)
+
+    @running = Concurrent::AtomicBoolean.new(false)
   end
 
   def execute
@@ -73,6 +75,8 @@ class LogStash::Agent
 
     start_webserver
     converge_state_and_update
+
+    transition_to_running
 
     if @auto_reload
       # `sleep_then_run` instead of firing the interval right away
@@ -92,6 +96,16 @@ class LogStash::Agent
         end
       end
     end
+  ensure
+    transition_to_stopped
+  end
+
+  def running?
+    @running.value
+  end
+
+  def stopped?
+    !@running.value
   end
 
   def converge_state_and_update
@@ -112,6 +126,8 @@ class LogStash::Agent
 
     report_currently_running_pipelines
     update_metrics(converge_result)
+
+    converge_result
   end
 
   # Calculate the Logstash uptime in milliseconds
@@ -161,9 +177,13 @@ class LogStash::Agent
     @id = uuid
   end
 
+  def id_path
+    @id_path ||= ::File.join(settings.get("path.data"), "uuid")
+  end
+
   def get_pipeline(pipeline_id)
     @pipelines_mutex.synchronize do
-      @pipelines[:pipeline_id]
+      @pipelines[pipeline_id]
     end
   end
 
@@ -194,8 +214,12 @@ class LogStash::Agent
   end
 
   private
-  def id_path
-    @id_path ||= ::File.join(settings.get("path.data"), "uuid")
+  def transition_to_stopped
+    @running.make_false
+  end
+
+  def transition_to_running
+    @running.make_true
   end
 
   # We depends on a series of task derived from the internal state and what
@@ -235,9 +259,9 @@ class LogStash::Agent
         logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
         converge_result.add(action, e)
       end
-
-      converge_result
     end
+
+    converge_result
   end
 
   def resolve_actions(pipeline_configs)

@@ -45,4 +45,3 @@ def simulate_auto_reload(agent, number_of_reload = 1, sleep_time_between = 0)
     sleep(sleep_time_between)
   end
 end
-

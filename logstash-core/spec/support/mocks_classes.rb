@@ -87,5 +87,44 @@ module LogStash
         @num_closes = 1
       end
     end
+end end
+
+
+# This class mimic the usage of `logstash/config/source_loader`
+class TestSourceLoader
+  def initialize(*responses)
+    @count = Concurrent::AtomicFixnum.new(0)
+    @responses_mutex = Mutex.new
+    @responses = responses
+  end
+
+  def fetch
+    @count.increment
+    @responses
+end
+
+  def fetch_count
+    @count.value
+  end
+end
+
+class TestSequenceSourceLoader
+  attr_reader :original_responses
+
+  def initialize(*responses)
+    @count = Concurrent::AtomicFixnum.new(0)
+    @responses_mutex = Mutex.new
+    @responses = responses.collect { |response| Array(response) }
+
+    @original_responses = @responses.dup
+  end
+
+  def fetch
+    @count.increment
+    @responses_mutex.synchronize { @responses.shift }
+  end
+
+  def fetch_count
+    @count.value
   end
 end

@@ -24,6 +24,8 @@ end
 
 RSpec.configure do |c|
   Flores::RSpec.configure(c)
+  c.include LogStashHelper
+  c.extend LogStashHelper
   c.before do
     # TODO: commented out on post-merged in master - the logger has moved to log4j
     #

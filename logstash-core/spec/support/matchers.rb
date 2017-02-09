@@ -1,6 +1,7 @@
 # encoding: utf-8
 require "rspec"
 require "rspec/expectations"
+require "logstash/config/pipeline_config"
 
 RSpec::Matchers.define :be_a_metric_event do |namespace, type, *args|
   match do
@@ -47,18 +48,26 @@ RSpec::Matchers.define :have_actions do |*expected|
   end
 end
 
-RSpec::Matchers.define :have_pipeline do |pipeline_id, pipeline_config = nil|
+RSpec::Matchers.define :have_pipeline? do |pipeline_config|
   match do |agent|
-    pipeline = agent.get_pipeline(pipeline_id)
+    pipeline = agent.get_pipeline(pipeline_config.pipeline_id)
     expect(pipeline).to_not be_nil
-    expect(pipeline.config_str).to eq(pipeline_config) unless pipeline_config.nil?
+    expect(pipeline.config_str).to eq(pipeline_config.config_string)
+  end
+
+  match_when_negated do |agent|
+    pipeline = agent.get_pipeline(pipeline_config.pipeline_id)
+    pipeline.nil? || pipeline.config_str != pipeline_config.config_string
   end
 end
 
-RSpec::Matchers.define :have_running_pipeline do |pipeline_id, pipeline_config = nil|
+RSpec::Matchers.define :have_running_pipeline? do |pipeline_config|
   match do |agent|
-    pipeline = agent.get_pipeline(pipeline_id)
+    pipeline = agent.get_pipeline(pipeline_config.pipeline_id)
     expect(pipeline.running?).to be_truthy
-    expect(agent).to have_pipeline(pipeline_id, pipeline_config)
+  end
+
+  match_when_negated do
+    raise "Not implemented"
   end
 end
