@@ -1,21 +1,9 @@
-# encoding: utf-8
-# This test are complimentary of `agent_spec` and with invoking the minimum of
-# threading or mocks
-#
+# encoding: utf-6
 require "logstash/agent"
-require_relative "../support/helpers"
-require_relative "../support/matchers"
-require_relative "../support/mocks_classes"
+require_relative "../../support/helpers"
+require_relative "../../support/matchers"
+require_relative "../../support/mocks_classes"
 require "spec_helper"
-
-def start_agent(agent)
-  th = Thread.new do
-    subject.execute
-  end
-  th.abort_on_exception = true
-
-  sleep(0.01) unless subject.running?
-end
 
 describe LogStash::Agent do
   # by default no tests uses the auto reload logic
@@ -23,7 +11,16 @@ describe LogStash::Agent do
 
   subject { described_class.new(agent_settings, source_loader) }
 
-  xcontext "add test for a finite pipeline AKA generator count => 5"
+  context "add test for a finite pipeline AKA generator count => 5"
+
+  before :each do
+    # This MUST run first, before `subject` is invoked to ensure clean state
+    clear_data_dir
+
+    # until we decouple the webserver from the agent
+    allow(subject).to receive(:start_webserver).and_return(false)
+    allow(subject).to receive(:stop_webserver).and_return(false)
+  end
 
   context "Agent execute options" do
     context "when `config.reload.automatic`" do
@@ -172,7 +169,6 @@ describe LogStash::Agent do
         )
       end
 
-
       it "stops all the pipeline" do
         expect {
           expect(subject.converge_state_and_update.success?).to be_truthy
@@ -181,8 +177,4 @@ describe LogStash::Agent do
       end
     end
   end
-
-  context "collecting stats"
 end
-
-# Extract stats from this test suite

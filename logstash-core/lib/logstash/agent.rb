@@ -361,11 +361,15 @@ class LogStash::Agent
   end
 
   def update_failures_metrics(action, action_result)
+    if action.is_a?(LogStash::PipelineAction::Create)
+      # force to create the metric fields
+      initialize_pipeline_metrics(action)
+    end
+
     @instance_reload_metric.increment(:failures)
 
     @pipeline_reload_metric.namespace([action.pipeline_id, :reloads]).tap do |n|
       n.increment(:failures)
-      # TODO(ph): I am not sure we should expose the backtrace in the API
       n.gauge(:last_error, { :message => action_result.message, :backtrace => action_result.backtrace})
       n.gauge(:last_failure_timestamp, LogStash::Timestamp.now)
     end

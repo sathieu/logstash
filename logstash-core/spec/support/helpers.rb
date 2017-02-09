@@ -39,9 +39,12 @@ def mock_pipeline_config(pipeline_id, config_string = nil)
   LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings({}))
 end
 
-def simulate_auto_reload(agent, number_of_reload = 1, sleep_time_between = 0)
-  number_of_reload.times do
-    agent.converge_state_and_update
-    sleep(sleep_time_between)
+def start_agent(agent)
+  th = Thread.new do
+    subject.execute
   end
+  th.abort_on_exception = true
+
+  sleep(0.01) unless subject.running?
 end
+
