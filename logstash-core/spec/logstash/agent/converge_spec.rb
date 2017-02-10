@@ -1,4 +1,4 @@
-# encoding: utf-6
+# encoding: utf-8
 require "logstash/agent"
 require_relative "../../support/helpers"
 require_relative "../../support/matchers"

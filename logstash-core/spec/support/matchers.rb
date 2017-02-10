@@ -64,6 +64,7 @@ end
 RSpec::Matchers.define :have_running_pipeline? do |pipeline_config|
   match do |agent|
     pipeline = agent.get_pipeline(pipeline_config.pipeline_id)
+    expect(pipeline).to_not be_nil
     expect(pipeline.running?).to be_truthy
   end
 

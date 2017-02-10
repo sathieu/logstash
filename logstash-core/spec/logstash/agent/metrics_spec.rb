@@ -6,16 +6,22 @@ require_relative "../../support/matchers"
 require_relative "../../support/mocks_classes"
 require "spec_helper"
 
+# Just make the tests a bit shorter to write and
+# assert, I will keep theses methods here for easier understanding.
 def mval(*path_elements)
-  metric.get_shallow(*path_elements).value
+  mhash(*path_elements).value
+end
+
+def mhash(*path_elements)
+  metric.get_shallow(*path_elements)
 end
 
 describe LogStash::Agent do
   # by default no tests uses the auto reload logic
   let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
 
-  let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }") }
-  let(:update_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new' } } filter { mutate {} } output { null {} }") }
+  let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } filter { mutate { add_tag => 'hello world' }} output { null {} }") }
+  let(:update_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new' } } output { null {} }") }
   let(:bad_update_pipeline_config) { mock_pipeline_config(:main, "hooo }") }
 
   let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }") }
@@ -183,7 +189,23 @@ describe LogStash::Agent do
     end
 
     context "when we successfully reload a pipeline" do
-      xit
+      let(:source_loader) do
+        TestSequenceSourceLoader.new(pipeline_config, update_pipeline_config)
+      end
+
+      before do
+        expect(subject.converge_state_and_update.success?).to be_truthy
+      end
+
+      it "it clear previous metrics" do
+        try(20) do
+          expect { mhash(:stats, :pipelines, :main, :plugins, :filters) }.not_to raise_error, "Filters stats should exist"
+        end
+        expect(subject.converge_state_and_update.success?).to be_truthy
+
+        # We do have to retry here, since stopping a pipeline is a blocking operation
+        expect { mhash(:stats, :pipelines, :main, :plugins, :filters) }.to raise_error
+      end
     end
 
     context "when we stop a pipeline" do
@@ -197,11 +219,18 @@ describe LogStash::Agent do
       end
 
       it "clear pipeline specific metric" do
-        expect( mval(:stats, :pipelines, :main, :events)).not_to be_nil
-        expect( mval(:stats, :pipelines, :main, :plugins)).not_to be_nil
+        # since the pipeline is async, it can actually take some time to have metrics recordings
+        # so we try a few times
+        try(20) do
+          expect { mhash(:stats, :pipelines, :main, :events) }.not_to raise_error , "Events pipelien stats should exist"
+          expect { mhash(:stats, :pipelines, :main, :plugins) }.not_to raise_error, "Plugins pipeline stats should exist"
+        end
+
         expect(subject.converge_state_and_update.success?).to be_truthy
-        expect { mval(:stats, :pipelines, :main, :events) }.to raise_error
-        expect { mval(:stats, :pipelines, :main, :plugins) }.to raise_error
+
+        # We do have to retry here, since stopping a pipeline is a blocking operation
+        expect { mhash(:stats, :pipelines, :main, :plugins) }.to raise_error
+        expect { mhash(:stats, :pipelines, :main, :events) }.to raise_error
       end
     end
   end

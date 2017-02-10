@@ -211,7 +211,7 @@ module LogStash; class Pipeline < BasePipeline
 
     logger.debug("Starting pipeline", :pipeline_id => pipeline_id)
 
-    thread = Thread.new do
+    @thread = Thread.new do
       begin
         LogStash::Util.set_thread_name("pipeline.#{pipeline_id}")
         run
@@ -220,7 +220,7 @@ module LogStash; class Pipeline < BasePipeline
       end
     end
 
-    status = wait_until_started(thread)
+    status = wait_until_started
 
     if status
       logger.debug("Pipeline started succesfully", :pipeline_id => pipeline_id)
@@ -229,7 +229,7 @@ module LogStash; class Pipeline < BasePipeline
     status
   end
 
-  def wait_until_started(thread)
+  def wait_until_started
     while true do
       if !thread.alive?
         return false
@@ -242,8 +242,6 @@ module LogStash; class Pipeline < BasePipeline
   end
 
   def run
-    @started_at = Time.now
-
     @thread = Thread.current
     Util.set_thread_name("[#{pipeline_id}]-pipeline-manager")
 
@@ -518,6 +516,7 @@ module LogStash; class Pipeline < BasePipeline
     @inputs.each(&:do_stop)
     @logger.debug "Closed inputs"
 
+    thread.join
     transition_to_stopped
     clear_pipeline_metrics
   end # def shutdown
