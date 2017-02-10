@@ -5,8 +5,6 @@ module LogStash
   #
   # Lets take the example of dynamic source, where the pipeline config and settings are located and
   # managed outside of the machine.
-  #
-  # I would certainly see us to have a `Stop` class that implement a time limit and do a force kill after a delay.
   class StateResolver
     def initialize(metric)
       @metric = metric
