@@ -35,11 +35,14 @@ describe LogStash::Agent do
   subject { described_class.new(agent_settings, source_loader) }
 
   before :each do
-    # until we decouple the webserver from the agent
+    # TODO(ph) until we decouple the webserver from the agent
+    # we just disable these calls
     allow(subject).to receive(:start_webserver).and_return(false)
     allow(subject).to receive(:stop_webserver).and_return(false)
   end
 
+  # Lets make sure we stop all the running pipeline for every example
+  # so we don't have any rogue pipeline in the background
   after :each do
     subject.shutdown
   end
