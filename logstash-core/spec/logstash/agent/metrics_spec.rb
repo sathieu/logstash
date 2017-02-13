@@ -35,6 +35,9 @@ describe LogStash::Agent do
   subject { described_class.new(agent_settings, source_loader) }
 
   before :each do
+    # This MUST run first, before `subject` is invoked to ensure clean state
+    clear_data_dir
+
     # TODO(ph) until we decouple the webserver from the agent
     # we just disable these calls
     allow(subject).to receive(:start_webserver).and_return(false)
