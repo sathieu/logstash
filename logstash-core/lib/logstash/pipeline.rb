@@ -242,6 +242,7 @@ module LogStash; class Pipeline < BasePipeline
   end
 
   def run
+    @started_at = Time.now
     @thread = Thread.current
     Util.set_thread_name("[#{pipeline_id}]-pipeline-manager")
 
@@ -512,14 +513,22 @@ module LogStash; class Pipeline < BasePipeline
 
     before_stop.call if block_given?
 
-    @logger.debug "Closing inputs"
-    @inputs.each(&:do_stop)
-    @logger.debug "Closed inputs"
-
-    thread.join
+    stop_inputs
+    wait_until_stopped
     transition_to_stopped
     clear_pipeline_metrics
   end # def shutdown
+
+  def wait_until_stopped
+    @input_threads.map(&:join)
+    @worker_threads.map(&:join)
+  end
+
+  def stop_inputs
+    @logger.debug "Closing inputs"
+    @inputs.each(&:do_stop)
+    @logger.debug "Closed inputs"
+  end
 
   # After `shutdown` is called from an external thread this is called from the main thread to
   # tell the worker threads to stop and then block until they've fully stopped
