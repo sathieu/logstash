@@ -83,9 +83,13 @@ class LogStash::Agent
       Stud.interval(@reload_interval, :sleep_then_run => true) { converge_state_and_update }
     else
       # If we don't have any pipelines at this point we assume that the current logstash
-      # config is bad and all of the pipeline died.
+      # config is bad and all of the pipeline died or were really short lived?
+      #
       #
       # We assume that we cannot recover from that scenario and quit logstash
+      # TODO(ph): Can we clarify this behavior
+      # if we start LS with with the following pipeline `input {} output {}`
+      # it will be complete when we hit the clean_state check:w
       return 1 if clean_state?
 
       while !Stud.stop?
@@ -96,6 +100,7 @@ class LogStash::Agent
         end
       end
     end
+    return 0
   ensure
     transition_to_stopped
   end

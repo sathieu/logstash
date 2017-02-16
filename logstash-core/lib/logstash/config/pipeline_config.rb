@@ -18,7 +18,7 @@ module LogStash module Config
     end
 
     def config_string
-      @config_string = config_parts.collect(&:config_string).join("\n")
+      @config_string = config_parts.collect(&:config_string).join("\n").chomp
     end
 
     def ==(other)

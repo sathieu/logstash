@@ -251,8 +251,7 @@ describe LogStash::Agent do
 
           it "does upgrade the new config" do
             t = Thread.new { subject.execute }
-            sleep(0.01) until subject.running_pipelines? && subject.pipelines.values.first.running?
-            expect(subject).to receive(:upgrade_pipeline).once.and_call_original
+            sleep 0.01 until subject.running_pipelines? && subject.pipelines.values.first.running?
             File.open(config_file, "w") { |f| f.puts second_pipeline_config }
 
             # TODO: refactor this. forcing an arbitrary fixed delay for thread concurrency issues is an indication of
@@ -260,6 +259,7 @@ describe LogStash::Agent do
             sleep(0.1)
             Stud.stop!(t)
             t.join
+            expect(subject.get_pipeline(:main).config_str).to eq(second_pipeline_config)
             subject.shutdown
           end
         end

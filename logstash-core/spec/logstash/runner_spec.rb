@@ -382,10 +382,10 @@ describe LogStash::Runner do
   describe "path.settings" do
     subject { LogStash::Runner.new("") }
     context "if does not exist" do
-      let(:args) { ["--path.settings", "/tmp/a/a/a/a", "-e", "input {} output {}"] }
+      let(:args) { ["--path.settings", "/tmp/a/a/a/a", "-e", "input { generator { count => 1000 }} output {}"] }
 
       it "should not terminate logstash" do
-        expect(subject.run(args)).to eq(nil)
+        expect(subject.run(args)).to eq(0)
       end
 
       context "but if --help is passed" do
