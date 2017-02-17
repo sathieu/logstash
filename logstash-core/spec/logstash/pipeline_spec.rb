@@ -3,6 +3,7 @@ require "spec_helper"
 require "logstash/inputs/generator"
 require "logstash/filters/multiline"
 require_relative "../support/mocks_classes"
+require_relative "../support/helpers"
 require_relative "../logstash/pipeline_reporter_spec" # for DummyOutput class
 
 class DummyInput < LogStash::Inputs::Base
@@ -852,6 +853,36 @@ describe LogStash::Pipeline do
 
     it "should not add ivars" do
        expect(pipeline1.instance_variables).to eq(pipeline2.instance_variables)
+    end
+  end
+
+  context "#reloadable?" do
+    after do
+      pipeline.close # close the queue
+    end
+
+    context "when all plugins are reloadable and pipeline is configured as reloadable" do
+      let(:pipeline) { LogStash::Pipeline.new("input { generator {} } output { null {} }", mock_settings("config.reload.automatic" => true)) }
+
+      it "returns true" do
+        expect(pipeline.reloadable?).to be_truthy
+      end
+    end
+
+    context "when the plugins are not reloadable and pipeline is configured as reloadable" do
+      let(:pipeline) { LogStash::Pipeline.new("input { stdin {} } output { null {} }", mock_settings("config.reload.automatic" => true)) }
+
+      it "returns true" do
+        expect(pipeline.reloadable?).to be_falsey
+      end
+    end
+
+    context "when all plugins are reloadable and pipeline is configured as non-reloadable" do
+      let(:pipeline) { LogStash::Pipeline.new("input { generator {} } output { null {} }", mock_settings("config.reload.automatic" => false)) }
+
+      it "returns true" do
+        expect(pipeline.reloadable?).to be_falsey
+      end
     end
   end
 end
