@@ -46,9 +46,17 @@ module LogStash
       def self.from_action(action)
         FailedAction.new("Could not execute action: #{action}")
       end
+
+      def successful?
+        false
+      end
     end
 
-    class SuccessfulAction < ActionResult; end
+    class SuccessfulAction < ActionResult
+      def successful?
+        true
+      end
+    end
 
     def initialize(expected_actions_count)
       @expected_actions_count = expected_actions_count
@@ -60,11 +68,11 @@ module LogStash
     end
 
     def failed_actions
-      filter_by_class(FailedAction)
+      filter_by_successful_state(false)
     end
 
     def successful_actions
-      filter_by_class(SuccessfulAction)
+      filter_by_successful_state(true)
     end
 
     def complete?
@@ -88,8 +96,8 @@ module LogStash
     end
 
     private
-    def filter_by_class(klass)
-      @actions.select { |action, action_result| action_result.is_a?(klass) }
+    def filter_by_successful_state(predicate)
+      @actions.select { |action, action_result| action_result.successful? == predicate }
     end
   end
 end

@@ -2,6 +2,7 @@
 require "logstash/pipeline_action/base"
 require "logstash/pipeline_action/create"
 require "logstash/pipeline_action/stop"
+require "logstash/base_pipeline"
 require "logstash/errors"
 require "logstash/util/loggable"
 
@@ -18,17 +19,26 @@ module LogStash module PipelineAction
       @pipeline_config.pipeline_id
     end
 
-    # We could detect in the resolve states that we are trying to reload
-    # a non reloadable pipeline, but I think we should fail here and raise an exception.
-    # If we need to reload a non reloadable pipeline the health status of logstash should be yellow
-    # since its not consistent and we are not able to converge.
     def execute(pipelines)
-      old_pipeline = pipelines[pipeline_id]
-      raise LogStash::NonReloadablePipelineError, "Cannot reload pipeline: #{pipeline_id}" unless old_pipeline.reloadable?
+      begin
+        pipeline_validator = LogStash::BasePipeline.new(@pipeline_config, @pipeline_config.settings)
+      rescue => e
+        return false
+      end
 
-      # TODO(ph): Look at colin implementation changes for reload
-      Stop.new(pipeline_id).execute(pipelines)
-      Create.new(@pipeline_config, @metric).execute(pipelines)
+      if !pipeline_validator.reloadable?
+        return false
+      end
+
+      old_pipeline = pipelines[pipeline_id]
+
+      status = Stop.new(pipeline_id).execute(pipelines)
+
+      if status
+        return Create.new(@pipeline_config, @metric).execute(pipelines)
+      else
+        return status
+      end
     end
   end
 end end

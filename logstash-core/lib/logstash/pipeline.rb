@@ -216,6 +216,7 @@ module LogStash; class Pipeline < BasePipeline
         LogStash::Util.set_thread_name("pipeline.#{pipeline_id}")
         run
       rescue => e
+        close
         logger.error("Pipeline aborted due to error", :exception => e, :backtrace => e.backtrace)
       end
     end

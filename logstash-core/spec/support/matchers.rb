@@ -72,3 +72,15 @@ RSpec::Matchers.define :have_running_pipeline? do |pipeline_config|
     raise "Not implemented"
   end
 end
+
+Rspec::Matcher.define :be_a_successful_action do
+  match do |pipeline_action|
+    if pipeline_action.is_a?(LogStash::ConvergeResult::ActionResult)
+      return pipeline_action.successful?
+    else pipeline_config.is_a?(Boolean)
+      return pipeline_config == true
+    else
+      raise "Incompatible class type of: #{pipeline_action.class}, Expected `Boolean` or `LogStash::ConvergeResult::ActionResult`"
+    end
+  end
+end

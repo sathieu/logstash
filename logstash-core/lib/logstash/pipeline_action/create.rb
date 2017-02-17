@@ -33,9 +33,7 @@ module LogStash module PipelineAction
     end
 
     def create_pipeline
-      LogStash::Pipeline.new(@pipeline_config.config_string,
-                             @pipeline_config.settings,
-                             @metric)
+      LogStash::Pipeline.new(@pipeline_config.config_string, @pipeline_config.settings, @metric)
     end
   end
 end end
