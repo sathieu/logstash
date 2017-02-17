@@ -33,10 +33,10 @@ def mock_pipeline(pipeline_id, reloadable = true, config_hash = nil)
   pipeline
 end
 
-def mock_pipeline_config(pipeline_id, config_string = nil)
+def mock_pipeline_config(pipeline_id, config_string = nil, settings = {})
   config_string = "input { stdin { id => '#{pipeline_id}' }}" if config_string.nil?
   config_part = LogStash::Config::ConfigPart.new(:config_string, "config_string", config_string)
-  LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings({}))
+  LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings(settings))
 end
 
 def start_agent(agent)

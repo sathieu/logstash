@@ -25,12 +25,13 @@ require "logstash/queue_factory"
 module LogStash; class BasePipeline
   include LogStash::Util::Loggable
 
-  attr_reader :config_str, :config_hash, :inputs, :filters, :outputs, :pipeline_id
+  attr_reader :settings, :config_str, :config_hash, :inputs, :filters, :outputs, :pipeline_id
 
   def initialize(config_str, settings = SETTINGS, namespaced_metric = nil)
     @logger = self.logger
 
     @config_str = config_str
+    @settings = settings
     @config_hash = Digest::SHA1.hexdigest(@config_str)
 
     # Every time #plugin is invoked this is incremented to give each plugin
@@ -102,6 +103,14 @@ module LogStash; class BasePipeline
   end
 
   def reloadable?
+    configured_as_reloadable? && reloadable_plugins?
+  end
+
+  def configured_as_reloadable?
+    settings.get("config.reload.automatic")
+  end
+
+  def reloadable_plugins?
     non_reloadable_plugins.empty?
   end
 

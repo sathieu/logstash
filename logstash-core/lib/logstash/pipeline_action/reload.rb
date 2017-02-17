@@ -2,7 +2,6 @@
 require "logstash/pipeline_action/base"
 require "logstash/pipeline_action/create"
 require "logstash/pipeline_action/stop"
-require "logstash/base_pipeline"
 require "logstash/errors"
 require "logstash/util/loggable"
 
@@ -20,8 +19,12 @@ module LogStash module PipelineAction
     end
 
     def execute(pipelines)
+      old_pipeline = pipelines[pipeline_id]
+
+      return false if !old_pipeline.reloadable?
+
       begin
-        pipeline_validator = LogStash::BasePipeline.new(@pipeline_config, @pipeline_config.settings)
+        pipeline_validator = LogStash::BasePipeline.new(@pipeline_config.config_string, @pipeline_config.settings)
       rescue => e
         return false
       end
@@ -29,8 +32,6 @@ module LogStash module PipelineAction
       if !pipeline_validator.reloadable?
         return false
       end
-
-      old_pipeline = pipelines[pipeline_id]
 
       status = Stop.new(pipeline_id).execute(pipelines)
 
