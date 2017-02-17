@@ -17,6 +17,10 @@ describe LogStash::PipelineAction::Stop do
     pipeline.start
   end
 
+  after do
+    pipeline.shutdown
+  end
+
   it "returns the pipeline_id" do
     expect(subject.pipeline_id).to eq(:main)
   end

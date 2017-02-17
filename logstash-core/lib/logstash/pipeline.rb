@@ -514,14 +514,17 @@ module LogStash; class Pipeline < BasePipeline
     before_stop.call if block_given?
 
     stop_inputs
-    wait_until_stopped
-    transition_to_stopped
+
+    # We make this call blocking, so we know for sure when the method return the shtudown is
+    # stopped
+    wait_for_workers
     clear_pipeline_metrics
   end # def shutdown
 
-  def wait_until_stopped
-    @input_threads.map(&:join)
+  def wait_for_workers
+    @logger.debug("Closing inputs")
     @worker_threads.map(&:join)
+    @logger.debug("Worker closed")
   end
 
   def stop_inputs

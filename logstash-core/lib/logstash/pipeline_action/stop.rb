@@ -1,5 +1,6 @@
 # encoding: utf-8
 require "logstash/pipeline_action/base"
+require "logstash/shutdown_watcher"
 
 module LogStash module PipelineAction
   class Stop < Base
