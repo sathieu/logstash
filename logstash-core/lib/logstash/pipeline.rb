@@ -447,7 +447,7 @@ module LogStash; class Pipeline < BasePipeline
     output_events_map.each do |output, events|
       output.multi_receive(events)
     end
-    
+
     @filter_queue_client.add_output_metrics(batch)
   end
 
