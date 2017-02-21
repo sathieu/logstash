@@ -19,14 +19,15 @@ end
 describe LogStash::Agent do
   # by default no tests uses the auto reload logic
   let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
+  let(:pipeline_settings) { { "config.reload.automatic" => true } }
 
-  let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } filter { mutate { add_tag => 'hello world' }} output { null {} }") }
-  let(:update_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new' } } output { null {} }") }
-  let(:bad_update_pipeline_config) { mock_pipeline_config(:main, "hooo }") }
+  let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } filter { mutate { add_tag => 'hello world' }} output { null {} }", pipeline_settings) }
+  let(:update_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new' } } output { null {} }", pipeline_settings) }
+  let(:bad_update_pipeline_config) { mock_pipeline_config(:main, "hooo }", pipeline_settings) }
 
-  let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }") }
-  let(:bad_pipeline_config) { mock_pipeline_config(:bad, "hooo }") }
-  let(:second_bad_pipeline_config) { mock_pipeline_config(:second_bad, "hooo }") }
+  let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }", pipeline_settings) }
+  let(:bad_pipeline_config) { mock_pipeline_config(:bad, "hooo }", pipeline_settings) }
+  let(:second_bad_pipeline_config) { mock_pipeline_config(:second_bad, "hooo }", pipeline_settings) }
 
   let(:source_loader) do
     TestSourceLoader.new([])
