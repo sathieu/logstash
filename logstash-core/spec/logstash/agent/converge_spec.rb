@@ -7,11 +7,12 @@ require "spec_helper"
 
 describe LogStash::Agent do
   # by default no tests uses the auto reload logic
-  let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
+  let(:agent_settings) {
+    LogStash::SETTINGS.set("queue.type","persisted");
+    mock_settings("config.reload.automatic" => false, "queue.type" => "persisted")
+  }
 
   subject { described_class.new(agent_settings, source_loader) }
-
-  xit "add test for a finite pipeline AKA generator count => 5"
 
   before do
     clear_data_dir
@@ -29,6 +30,18 @@ describe LogStash::Agent do
   end
 
   context "Agent execute options" do
+    context "when the pipeline is execution limite (finite)" do
+      let(:finite_pipeline_config) { mock_pipeline_config(:main, "input { generator { count => 1000 } } output { null {} }") }
+
+      let(:source_loader) do
+        TestSourceLoader.new(finite_pipeline_config)
+      end
+
+      it "execute the pipeline and stop execution" do
+        expect(subject.execute).to eq(0)
+      end
+    end
+
     context "when `config.reload.automatic`" do
       let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }") }
 
@@ -78,21 +91,18 @@ describe LogStash::Agent do
     let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator { id => 'new' } } output { null {} }") }
 
     let(:source_loader) do
-      TestSourceLoader.new(pipeline_config, new_pipeline_config)
-    end
-
-    before do
-      expect(subject.converge_state_and_update).to be_a_successful_converge
+      TestSourceLoader.new([pipeline_config, new_pipeline_config])
     end
 
     it "stops the running pipelines" do
+      expect(subject.converge_state_and_update).to be_a_successful_converge
       expect { subject.shutdown }.to change { subject.running_pipelines.size }.from(2).to(0)
     end
   end
 
-  xcontext "Configuration converge scenario" do
-    let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }") }
-    let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }") }
+  context "Configuration converge scenario" do
+    let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }", { "config.reload.automatic" => true }) }
+    let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }", { "config.reload.automatic" => true }) }
 
     before do
       # Set the Agent to an initial state of pipelines
@@ -112,7 +122,7 @@ describe LogStash::Agent do
       end
     end
 
-    xcontext "when a pipeline is running" do
+    context "when a pipeline is running" do
       context "when the source returns the current pipeline and a new one" do
         let(:source_loader) do
           TestSequenceSourceLoader.new(
@@ -148,17 +158,17 @@ describe LogStash::Agent do
       end
     end
 
-    xcontext "when the source return a modified pipeline" do
-      let(:modified_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new-and-modified'} } output { null {} }") }
+    context "when the source return a modified pipeline" do
+      let(:modified_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new-and-modified' } } output { null {} }", { "config.reload.automatic" => true }) }
 
       let(:source_loader) do
         TestSequenceSourceLoader.new(
-          pipeline_config,
-          modified_pipeline_config
+          [pipeline_config],
+          [modified_pipeline_config]
         )
       end
 
-      it "stops the missing pipeline and start the new one" do
+      it "reloads the modified pipeline" do
         expect {
           expect(subject.converge_state_and_update).to be_a_successful_converge
         }.not_to change { subject.running_pipelines.count }
@@ -167,7 +177,7 @@ describe LogStash::Agent do
       end
     end
 
-    xcontext "when the source return no pipelines" do
+    context "when the source return no pipelines" do
       let(:source_loader) do
         TestSequenceSourceLoader.new(
           [pipeline_config, new_pipeline_config],

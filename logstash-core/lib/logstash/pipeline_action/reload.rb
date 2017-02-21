@@ -4,6 +4,7 @@ require "logstash/pipeline_action/create"
 require "logstash/pipeline_action/stop"
 require "logstash/errors"
 require "logstash/util/loggable"
+require "logstash/converge_result"
 
 module LogStash module PipelineAction
   class Reload < Base
@@ -21,16 +22,18 @@ module LogStash module PipelineAction
     def execute(pipelines)
       old_pipeline = pipelines[pipeline_id]
 
-      return false if !old_pipeline.reloadable?
+      if !old_pipeline.reloadable?
+        return LogStash::ConvergeResult::FailedAction.new("Cannot reload pipeline, because the existing pipeline is not reloadable")
+      end
 
       begin
         pipeline_validator = LogStash::BasePipeline.new(@pipeline_config.config_string, @pipeline_config.settings)
       rescue => e
-        return false
+        return LogStash::ConvergeResult::FailedAction.from_exception(e)
       end
 
       if !pipeline_validator.reloadable?
-        return false
+        return LogStash::ConvergeResult::FailedAction.new("Cannot reload pipeline, because the new pipeline is not reloadable")
       end
 
       status = Stop.new(pipeline_id).execute(pipelines)

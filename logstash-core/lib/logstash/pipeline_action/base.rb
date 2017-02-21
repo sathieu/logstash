@@ -11,6 +11,7 @@ module LogStash module PipelineAction
     def inspect
       "#{self.class.name}/pipeline_id:#{pipeline_id}"
     end
+    alias_method :to_s, :inspect
 
     def <=>(other)
       (ORDERING.index(self.class) <=> ORDERING.index(other.class)).nonzero? || self.pipeline_id <=> other.pipeline_id

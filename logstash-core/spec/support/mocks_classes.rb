@@ -95,7 +95,7 @@ class TestSourceLoader
   def initialize(*responses)
     @count = Concurrent::AtomicFixnum.new(0)
     @responses_mutex = Mutex.new
-    @responses = responses
+    @responses = responses.size == 1 ? Array(responses.first) : responses
   end
 
   def fetch

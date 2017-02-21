@@ -291,12 +291,10 @@ class LogStash::Agent
     end
 
     if logger.trace?
-      logger.trace("Converge result", :success => converge_result.success?,
+      logger.trace("Converge results", :success => converge_result.success?,
                    :failed_actions => converge_result.failed_actions.collect { |a, r| "id: #{a.pipeline_id}, action_type: #{a.class}, message: #{r.message}" },
                    :successful_actions => converge_result.successful_actions.collect { |a, r| "id: #{a.pipeline_id}, action_type: #{a.class}" })
     end
-
-    puts "success: #{converge_result.success?} - failed actions: #{converge_result.failed_actions.collect { |a,r| "id: #{a.pipeline_id} a: #{a.class} - #{r.message}" }} - success: #{converge_result.successful_actions.collect { |a, r| "id: #{a.pipeline_id} a: #{a.class}" }}"
 
     converge_result
   end
