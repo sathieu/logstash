@@ -7,10 +7,7 @@ require "spec_helper"
 
 describe LogStash::Agent do
   # by default no tests uses the auto reload logic
-  let(:agent_settings) {
-    LogStash::SETTINGS.set("queue.type","persisted");
-    mock_settings("config.reload.automatic" => false, "queue.type" => "persisted")
-  }
+  let(:agent_settings) { mock_settings("config.reload.automatic" => false, "queue.type" => "persisted") }
 
   subject { described_class.new(agent_settings, source_loader) }
 
