@@ -78,9 +78,21 @@ class LogStash::Agent
 
     transition_to_running
 
-    if @auto_reload
+    if auto_reload?
       # `sleep_then_run` instead of firing the interval right away
-      Stud.interval(@reload_interval, :sleep_then_run => true) { converge_state_and_update }
+      Stud.interval(@reload_interval, :sleep_then_run => true) do
+        # TODO(ph) OK, in reality, we should get out of the loop, but I am
+        # worried about the implication of that change so instead when we are stopped
+        # we don't converge.
+        #
+        # Logstash currently expect to be block here, the signal will force a kill on the agent making
+        # the agent thread unblock
+        #
+        # Actually what we really need is one more state:
+        #
+        # init => running => stopping => stopped
+        converge_state_and_update unless stopped?
+      end
     else
       # If we don't have any pipelines at this point we assume that the current logstash
       # config is bad and all of the pipeline died or were really short lived?
@@ -103,6 +115,10 @@ class LogStash::Agent
     return 0
   ensure
     transition_to_stopped
+  end
+
+  def auto_reload?
+    @auto_reload
   end
 
   def running?
@@ -145,7 +161,9 @@ class LogStash::Agent
   def shutdown
     stop_collecting_metrics
     stop_webserver
-    shutdown_pipelines
+    transition_to_stopped
+    converge_result = shutdown_pipelines
+    converge_result
   end
 
   def id
@@ -189,6 +207,12 @@ class LogStash::Agent
   def get_pipeline(pipeline_id)
     @pipelines_mutex.synchronize do
       @pipelines[pipeline_id]
+    end
+  end
+
+  def pipelines_count
+    @pipelines_mutex.synchronize do
+      pipelines.size
     end
   end
 
@@ -266,6 +290,14 @@ class LogStash::Agent
       end
     end
 
+    if logger.trace?
+      logger.trace("Converge result", :success => converge_result.success?,
+                   :failed_actions => converge_result.failed_actions.collect { |a, r| "id: #{a.pipeline_id}, action_type: #{a.class}, message: #{r.message}" },
+                   :successful_actions => converge_result.successful_actions.collect { |a, r| "id: #{a.pipeline_id}, action_type: #{a.class}" })
+    end
+
+    puts "success: #{converge_result.success?} - failed actions: #{converge_result.failed_actions.collect { |a,r| "id: #{a.pipeline_id} a: #{a.class} - #{r.message}" }} - success: #{converge_result.successful_actions.collect { |a, r| "id: #{a.pipeline_id} a: #{a.class}" }}"
+
     converge_result
   end
 
@@ -319,10 +351,14 @@ class LogStash::Agent
   end
 
   def shutdown_pipelines
+    logger.debug("Shutting down all pipelines", :pipelines_count => pipelines_count)
+
     # In this context I could just call shutdown, but I've decided to
     # use the stop action implementation for that so we have the same code.
+    # This also give us some context into why a shutdown is failing
     @pipelines_mutex.synchronize do
-      @pipelines.keys.each { |pipeline_id| LogStash::PipelineAction::Stop.new(pipeline_id).execute(@pipelines) }
+      pipeline_actions = resolve_actions([]) # We stop all the pipeline, so we converge to a null state
+      converge_state(pipeline_actions)
     end
   end
 

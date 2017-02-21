@@ -1,4 +1,6 @@
 # encoding: utf-8
+require "stud/task"
+
 def silence_warnings
   warn_level = $VERBOSE
   $VERBOSE = nil
@@ -8,8 +10,13 @@ ensure
 end
 
 def clear_data_dir
+  if defined?(agent_settings)
     data_path = agent_settings.get("path.data")
-    Dir.foreach(data_path) do |f|
+  else
+    data_path = LogStash::SETTINGS.get("path.data")
+  end
+
+  Dir.foreach(data_path) do |f|
     next if f == "." || f == ".." || f == ".gitkeep"
     FileUtils.rm_rf(File.join(data_path, f))
   end
@@ -36,16 +43,22 @@ end
 
 def mock_pipeline_config(pipeline_id, config_string = nil, settings = {})
   config_string = "input { stdin { id => '#{pipeline_id}' }}" if config_string.nil?
+  settings.merge!({ "pipeline.id" => pipeline_id.to_s })
+
   config_part = LogStash::Config::ConfigPart.new(:config_string, "config_string", config_string)
   LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings(settings))
 end
 
 def start_agent(agent)
-  th = Thread.new do
-    subject.execute
+  agent_task =  Stud::Task.new do
+    begin
+      subject.execute
+    rescue => e
+      raise "Start Agent exception: #{e}"
+    end
   end
-  th.abort_on_exception = true
 
-  sleep(0.01) unless subject.running?
+  sleep(0.1) unless subject.running?
+  agent_task
 end
 

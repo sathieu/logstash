@@ -14,6 +14,7 @@ describe LogStash::PipelineAction::Stop do
   subject { described_class.new(pipeline_id) }
 
   before do
+    clear_data_dir
     pipeline.start
   end
 

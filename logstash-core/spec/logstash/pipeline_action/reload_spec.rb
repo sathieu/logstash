@@ -16,6 +16,7 @@ describe LogStash::PipelineAction::Reload do
   subject { described_class.new(new_pipeline_config, metric) }
 
   before do
+    clear_data_dir
     pipeline.start
   end
 

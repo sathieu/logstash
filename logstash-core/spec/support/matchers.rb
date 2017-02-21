@@ -65,11 +65,42 @@ RSpec::Matchers.define :have_running_pipeline? do |pipeline_config|
   match do |agent|
     pipeline = agent.get_pipeline(pipeline_config.pipeline_id)
     expect(pipeline).to_not be_nil
+    expect(pipeline.config_str).to eq(pipeline_config.config_string)
     expect(pipeline.running?).to be_truthy
+  end
+
+  failure_message do |agent|
+    pipeline = agent.get_pipeline(pipeline_config.pipeline_id)
+
+    if pipeline.nil?
+      "Expected pipeline to exist and running, be we cannot find `#{pipeline_config.pipeline_id}` in the running pipelines `#{agent.pipelines.keys.join(",")}`"
+      else
+        if pipeline.running? == false
+          "Found `#{pipeline_config.pipeline_id}` in the list of pipelines but its not running"
+        elsif pipeline.config_str != pipeline_config.config_string
+          "Found `#{pipeline_config.pipeline_id}` in the list of pipelines but its not running, but the config_string doesn't match"
+        end
+      end
   end
 
   match_when_negated do
     raise "Not implemented"
+  end
+end
+
+RSpec::Matchers.define :be_a_successful_converge do
+  match do |converge_results|
+    converge_results.success?
+  end
+
+  failure_message do |converge_results|
+    "Expected all actions to be successful:
+    #{converge_results.failed_actions.collect { |action, result| "pipeline_id: #{action.pipeline_id}, message: #{result.message}"}.join("\n")}"
+  end
+
+  failure_message_when_negated do |converge_results|
+    "Expected all actions to failed:
+    #{converge_results.successful_actions.collect { |action, result| "pipeline_id: #{action.pipeline_id}, message: #{result.message}"}.join("\n")}"
   end
 end
 

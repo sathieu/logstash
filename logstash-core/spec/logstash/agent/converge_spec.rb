@@ -11,15 +11,21 @@ describe LogStash::Agent do
 
   subject { described_class.new(agent_settings, source_loader) }
 
-  context "add test for a finite pipeline AKA generator count => 5"
+  xit "add test for a finite pipeline AKA generator count => 5"
 
-  before :each do
-    # This MUST run first, before `subject` is invoked to ensure clean state
+  before do
     clear_data_dir
 
     # until we decouple the webserver from the agent
     allow(subject).to receive(:start_webserver).and_return(false)
     allow(subject).to receive(:stop_webserver).and_return(false)
+  end
+
+  # Make sure that we close any running pipeline to release any pending locks
+  # on the queues
+  after do
+    converge_result = subject.shutdown
+    expect(converge_result).to be_a_successful_converge
   end
 
   context "Agent execute options" do
@@ -30,19 +36,22 @@ describe LogStash::Agent do
         TestSourceLoader.new(pipeline_config)
       end
 
-      context "is FALSE" do
-        let(:agent_settings) { mock_settings("config.reload.automatic" => true) }
+      context "is set to`FALSE`" do
+        let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
 
         it "converge only once" do
-          start_agent(subject)
+          agent_task = start_agent(subject)
 
-          expect(subject).to have_running_pipeline?(pipeline_config)
           expect(source_loader.fetch_count).to eq(1)
+          expect(subject).to have_running_pipeline?(pipeline_config)
+
           subject.shutdown
+          agent_task.stop!
         end
       end
 
-      context "is TRUE" do
+      context "is set to `TRUE`" do
+        let(:interval) { 0.01 }
         let(:agent_settings) do
           mock_settings(
             "config.reload.automatic" => true,
@@ -51,14 +60,14 @@ describe LogStash::Agent do
         end
 
         it "converges periodically the pipelines from the configs source" do
-          start_agent(subject)
+          agent_task = start_agent(subject)
 
+          sleep(0.01 * 10) # let the interval reload a few times
           expect(subject).to have_running_pipeline?(pipeline_config)
-
-          # Let the thread trigger a few calls
-          try { expect(source_loader.fetch_count).to be > 1 }
+          expect(source_loader.fetch_count).to be > 1
 
           subject.shutdown
+          agent_task.stop!
         end
       end
     end
@@ -66,14 +75,14 @@ describe LogStash::Agent do
 
   context "when shutting down the agent" do
     let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }") }
-    let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }") }
+    let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator { id => 'new' } } output { null {} }") }
 
     let(:source_loader) do
       TestSourceLoader.new(pipeline_config, new_pipeline_config)
     end
 
     before do
-      expect(subject.converge_state_and_update.success?).to be_truthy
+      expect(subject.converge_state_and_update).to be_a_successful_converge
     end
 
     it "stops the running pipelines" do
@@ -81,16 +90,13 @@ describe LogStash::Agent do
     end
   end
 
-  context "Configuration converge scenario" do
+  xcontext "Configuration converge scenario" do
     let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }") }
     let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }") }
 
     before do
-      expect(subject.converge_state_and_update.success?).to be_truthy
-    end
-
-    after do
-      subject.shutdown
+      # Set the Agent to an initial state of pipelines
+      expect(subject.converge_state_and_update).to be_a_successful_converge
     end
 
     context "no pipelines is running" do
@@ -100,13 +106,13 @@ describe LogStash::Agent do
 
       it "creates and starts the new pipeline" do
         expect {
-          expect(subject.converge_state_and_update.success?).to be_truthy
+          expect(subject.converge_state_and_update).to be_a_successful_converge
         }.to change { subject.running_pipelines.count }.from(0).to(1)
         expect(subject).to have_running_pipeline?(pipeline_config)
       end
     end
 
-    context "when a pipeline is running" do
+    xcontext "when a pipeline is running" do
       context "when the source returns the current pipeline and a new one" do
         let(:source_loader) do
           TestSequenceSourceLoader.new(
@@ -117,7 +123,7 @@ describe LogStash::Agent do
 
         it "start a new pipeline and keep the original" do
           expect {
-            expect(subject.converge_state_and_update.success?).to be_truthy
+            expect(subject.converge_state_and_update).to be_a_successful_converge
           }.to change { subject.running_pipelines.count }.from(1).to(2)
           expect(subject).to have_running_pipeline?(pipeline_config)
           expect(subject).to have_running_pipeline?(new_pipeline_config)
@@ -134,7 +140,7 @@ describe LogStash::Agent do
 
         it "stops the missing pipeline and start the new one" do
           expect {
-            expect(subject.converge_state_and_update.success?).to be_truthy
+            expect(subject.converge_state_and_update).to be_a_successful_converge
           }.not_to change { subject.running_pipelines.count }
           expect(subject).not_to have_pipeline?(pipeline_config)
           expect(subject).to have_running_pipeline?(new_pipeline_config)
@@ -142,7 +148,7 @@ describe LogStash::Agent do
       end
     end
 
-    context "when the source return a modified pipeline" do
+    xcontext "when the source return a modified pipeline" do
       let(:modified_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new-and-modified'} } output { null {} }") }
 
       let(:source_loader) do
@@ -154,14 +160,14 @@ describe LogStash::Agent do
 
       it "stops the missing pipeline and start the new one" do
         expect {
-          expect(subject.converge_state_and_update.success?).to be_truthy
+          expect(subject.converge_state_and_update).to be_a_successful_converge
         }.not_to change { subject.running_pipelines.count }
         expect(subject).to have_running_pipeline?(modified_pipeline_config)
         expect(subject).not_to have_pipeline?(pipeline_config)
       end
     end
 
-    context "when the source return no pipelines" do
+    xcontext "when the source return no pipelines" do
       let(:source_loader) do
         TestSequenceSourceLoader.new(
           [pipeline_config, new_pipeline_config],
@@ -169,9 +175,9 @@ describe LogStash::Agent do
         )
       end
 
-      it "stops all the pipeline" do
+      it "stops all the pipelines" do
         expect {
-          expect(subject.converge_state_and_update.success?).to be_truthy
+          expect(subject.converge_state_and_update).to be_a_successful_converge
         }.to change { subject.running_pipelines.count }.from(2).to(0)
         expect(subject).not_to have_pipeline?(pipeline_config)
       end

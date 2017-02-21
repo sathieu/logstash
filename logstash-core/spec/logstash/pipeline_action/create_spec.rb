@@ -10,6 +10,10 @@ describe LogStash::PipelineAction::Create do
   let(:pipeline_config) { mock_pipeline_config(:main, "input { generator { id => '123' } } output { null {} }") }
   let(:pipelines) {  Hash.new }
 
+  before do
+    clear_data_dir
+  end
+
   subject { described_class.new(pipeline_config, metric) }
 
   after do

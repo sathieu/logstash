@@ -1,6 +1,7 @@
 # encoding: utf-8
 require "spec_helper"
 require_relative "../support/helpers"
+require_relative "../support/matchers"
 require "logstash/state_resolver"
 require "logstash/config/config_part"
 require "logstash/config/pipeline_config"
@@ -12,6 +13,10 @@ require "digest"
 describe LogStash::StateResolver do
   subject { described_class.new(metric) }
   let(:metric) { LogStash::Instrument::NullMetric.new }
+
+  before do
+    clear_data_dir
+  end
 
   context "when no pipeline is running" do
     let(:running_pipelines) { {} }
@@ -87,7 +92,7 @@ describe LogStash::StateResolver do
       end
     end
 
-    xcontext "when we have a lot of pipeline running" do
+    context "when we have a lot of pipeline running" do
       let(:running_pipelines) do
         {
           :main1 => mock_pipeline(:main1),
