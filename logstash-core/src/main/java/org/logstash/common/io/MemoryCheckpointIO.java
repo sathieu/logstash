@@ -26,9 +26,13 @@ public class MemoryCheckpointIO implements CheckpointIO {
 
     @Override
     public Checkpoint read(String fileName) throws IOException {
-        Path path = Paths.get(dirPath, fileName);
-        Checkpoint cp = this.sources.get(path.toString());
-        if (cp == null) { throw new NoSuchFileException("no memory checkpoint for " + fileName); }
+
+        Checkpoint cp = null;
+        Map<String, Checkpoint> ns = this.sources.get(dirPath);
+        if (ns != null) {
+           cp = ns.get(fileName);
+        }
+        if (cp == null) { throw new NoSuchFileException("no memory checkpoint for dirPath: " + this.dirPath + ", fileName: " + fileName); }
         return cp;
     }
 
@@ -41,19 +45,25 @@ public class MemoryCheckpointIO implements CheckpointIO {
 
     @Override
     public void write(String fileName, Checkpoint checkpoint) throws IOException {
-        Path path = Paths.get(dirPath, fileName);
-        this.sources.put(path.toString(), checkpoint);
+        Map<String, Checkpoint> ns = this.sources.get(dirPath);
+        if (ns == null) {
+            ns = new HashMap<>();
+            this.sources.put(this.dirPath, ns);
+        }
+        ns.put(fileName, checkpoint);
     }
 
     @Override
     public void purge(String fileName) {
-        Path path = Paths.get(dirPath, fileName);
-        this.sources.remove(path.toString());
+        Map<String, Checkpoint> ns = this.sources.get(dirPath);
+        if (ns != null) {
+           ns.remove(fileName);
+        }
     }
 
     @Override
     public void purge() {
-        throw new NotImplementedException();
+        this.sources.remove(this.dirPath);
     }
 
     // @return the head page checkpoint file name
