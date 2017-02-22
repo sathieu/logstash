@@ -19,7 +19,7 @@ end
 describe LogStash::Agent do
   # by default no tests uses the auto reload logic
   let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
-  let(:pipeline_settings) { { "config.reload.automatic" => true } }
+  let(:pipeline_settings) { { "pipeline.reloadable" => true } }
 
   let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } filter { mutate { add_tag => 'hello world' }} output { null {} }", pipeline_settings) }
   let(:update_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new' } } output { null {} }", pipeline_settings) }

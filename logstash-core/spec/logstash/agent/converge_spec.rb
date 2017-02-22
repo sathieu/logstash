@@ -98,8 +98,8 @@ describe LogStash::Agent do
   end
 
   context "Configuration converge scenario" do
-    let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }", { "config.reload.automatic" => true }) }
-    let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }", { "config.reload.automatic" => true }) }
+    let(:pipeline_config) { mock_pipeline_config(:main, "input { generator {} } output { null {} }", { "pipeline.reloadable" => true }) }
+    let(:new_pipeline_config) { mock_pipeline_config(:new, "input { generator {} } output { null {} }", { "pipeline.reloadable" => true }) }
 
     before do
       # Set the Agent to an initial state of pipelines
@@ -156,7 +156,7 @@ describe LogStash::Agent do
     end
 
     context "when the source return a modified pipeline" do
-      let(:modified_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new-and-modified' } } output { null {} }", { "config.reload.automatic" => true }) }
+      let(:modified_pipeline_config) { mock_pipeline_config(:main, "input { generator { id => 'new-and-modified' } } output { null {} }", { "pipeline.reloadable" => true }) }
 
       let(:source_loader) do
         TestSequenceSourceLoader.new(
