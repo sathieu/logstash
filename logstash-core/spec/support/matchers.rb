@@ -78,7 +78,12 @@ RSpec::Matchers.define :have_running_pipeline? do |pipeline_config|
         if pipeline.running? == false
           "Found `#{pipeline_config.pipeline_id}` in the list of pipelines but its not running"
         elsif pipeline.config_str != pipeline_config.config_string
-          "Found `#{pipeline_config.pipeline_id}` in the list of pipelines but its not running, but the config_string doesn't match"
+          "Found `#{pipeline_config.pipeline_id}` in the list of pipelines and running, but the config_string doesn't match,
+Expected:
+#{pipeline_config.config_string}
+
+got:
+#{pipeline.config_str}"
         end
       end
   end

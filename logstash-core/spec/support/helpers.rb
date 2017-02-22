@@ -43,10 +43,16 @@ end
 
 def mock_pipeline_config(pipeline_id, config_string = nil, settings = {})
   config_string = "input { stdin { id => '#{pipeline_id}' }}" if config_string.nil?
-  settings.merge!({ "pipeline.id" => pipeline_id.to_s })
+
+  # This is for older tests when we already have a config
+  unless settings.is_a?(LogStash::Settings)
+    settings.merge!({ "pipeline.id" => pipeline_id.to_s })
+    settings = mock_settings(settings)
+  end
 
   config_part = LogStash::Config::ConfigPart.new(:config_string, "config_string", config_string)
-  LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, mock_settings(settings))
+
+  LogStash::Config::PipelineConfig.new(LogStash::Config::Source::Local, pipeline_id, config_part, settings)
 end
 
 def start_agent(agent)
