@@ -13,6 +13,10 @@ module LogStash module PipelineAction
     end
     alias_method :to_s, :inspect
 
+    def execute(pipelines)
+      raise "`#execute` Not implemented!"
+    end
+
     def <=>(other)
       (ORDERING.index(self.class) <=> ORDERING.index(other.class)).nonzero? || self.pipeline_id <=> other.pipeline_id
     end

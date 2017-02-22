@@ -105,7 +105,7 @@ RSpec::Matchers.define :be_a_successful_converge do
 
   failure_message_when_negated do |converge_results|
     "Expected all actions to failed:
-    #{converge_results.successful_actions.collect { |action, result| "pipeline_id: #{action.pipeline_id}, message: #{result.message}"}.join("\n")}"
+    #{converge_results.successful_actions.collect { |action, result| "pipeline_id: #{action.pipeline_id}"}.join("\n")}"
   end
 end
 

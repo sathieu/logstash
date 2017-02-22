@@ -76,6 +76,8 @@ class LogStash::Agent
     start_webserver
     converge_state_and_update
 
+    return 1 if clean_state?
+
     transition_to_running
 
     if auto_reload?
@@ -94,16 +96,6 @@ class LogStash::Agent
         converge_state_and_update unless stopped?
       end
     else
-      # If we don't have any pipelines at this point we assume that the current logstash
-      # config is bad and all of the pipeline died or were really short lived?
-      #
-      #
-      # We assume that we cannot recover from that scenario and quit logstash
-      # TODO(ph): Can we clarify this behavior
-      # if we start LS with with the following pipeline `input {} output {}`
-      # it will be complete when we hit the clean_state check:w
-      return 1 if clean_state?
-
       while !Stud.stop?
         if clean_state? || running_pipelines?
           sleep 0.5
