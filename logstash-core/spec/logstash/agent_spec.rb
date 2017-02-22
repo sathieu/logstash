@@ -26,6 +26,7 @@ describe LogStash::Agent do
     clear_data_dir
 
     File.open(config_file, "w") { |f| f.puts config_file_txt }
+
     agent_args.each do |key, value|
       agent_settings.set(key, value)
       pipeline_settings.set(key, value)
@@ -217,8 +218,11 @@ describe LogStash::Agent do
     end
 
     context "when auto_reload is true" do
+      subject { described_class.new(agent_settings) }
+
       let(:agent_args) do
         {
+          "config.string" => "",
           "config.reload.automatic" => true,
           "config.reload.interval" => 0.01,
           "path.config" => config_file
@@ -251,7 +255,9 @@ describe LogStash::Agent do
             File.open(config_file, "w") { |f| f.puts second_pipeline_config }
             sleep(0.2) # lets us catch the new file
 
-            expect(subject.pipelines[default_pipeline_id.to_sym].config_str).not_to eq(second_pipeline_config)
+            try do
+              expect(subject.pipelines[default_pipeline_id.to_sym].config_str).not_to eq(second_pipeline_config)
+            end
 
             Stud.stop!(t)
             t.join
@@ -268,7 +274,9 @@ describe LogStash::Agent do
             File.open(config_file, "w") { |f| f.puts second_pipeline_config }
             sleep(0.2) # lets us catch the new file
 
-            expect(subject.pipelines[default_pipeline_id.to_sym].config_str).to eq(second_pipeline_config)
+            try do
+              expect(subject.pipelines[default_pipeline_id.to_sym].config_str).to eq(second_pipeline_config)
+            end
 
             # TODO: refactor this. forcing an arbitrary fixed delay for thread concurrency issues is an indication of
             # a bad test design or missing class functionality.
@@ -318,10 +326,9 @@ describe LogStash::Agent do
 
         # Since the pipeline is running in another threads
         # the content of the file wont be instant.
-        try do
-          json_document = LogStash::Json.load(File.read(temporary_file).chomp)
-          expect(json_document["message"]).to eq("foo-bar")
-        end
+        sleep(0.1) until File.exist?(temporary_file)
+        json_document = LogStash::Json.load(File.read(temporary_file).chomp)
+        expect(json_document["message"]).to eq("foo-bar")
       end
     end
   end

@@ -123,7 +123,6 @@ class LogStash::Agent
 
   def converge_state_and_update
     pipeline_configs = @source_loader.fetch
-
     # TODO(ph) did we get the pipeline succesfully or not
     # if the fetch fails we should log it but not reload the state
 
