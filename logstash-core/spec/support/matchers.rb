@@ -123,3 +123,11 @@ RSpec::Matchers.define :be_a_successful_action do
     end
   end
 end
+
+RSpec::Matchers.define :be_a_config_part do |reader, source_id, config_string = nil|
+  match do |actual|
+   expect(actual.reader).to eq(reader)
+   expect(actual.source_id).to eq(source_id)
+   expect(actual.config_string).to match(config_string) unless config_string.nil?
+  end
+end

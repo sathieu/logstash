@@ -8,14 +8,6 @@ require_relative "../../../support/helpers"
 require "spec_helper"
 require "webmock/rspec"
 
-RSpec::Matchers.define :be_a_config_part do |reader, source_id, config_string = nil|
-  match do |actual|
-   expect(actual.reader).to eq(reader)
-   expect(actual.source_id).to eq(source_id)
-   expect(actual.config_string).to match(config_string) unless config_string.nil?
-  end
-end
-
 def temporary_file(content, file_name = Time.now.to_i.to_s, directory = Stud::Temporary.pathname)
   FileUtils.mkdir_p(directory)
   target = ::File.join(directory, file_name)
