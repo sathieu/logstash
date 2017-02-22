@@ -8,9 +8,9 @@ require "logstash/instrument/null_metric"
 describe LogStash::PipelineAction::Reload do
   let(:metric) { LogStash::Instrument::NullMetric.new(LogStash::Instrument::Collector.new) }
   let(:pipeline_id) { :main }
-  let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input { generator { id => 'new' } } output { null {} }", { "config.reload.automatic" => true}) }
+  let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input { generator { id => 'new' } } output { null {} }", { "pipeline.reloadable" => true}) }
   let(:pipeline_config) { "input { generator {} } output { null {} }" }
-  let(:pipeline) { LogStash::Pipeline.new(pipeline_config, mock_settings("config.reload.automatic" => true)) }
+  let(:pipeline) { LogStash::Pipeline.new(pipeline_config, mock_settings("pipeline.reloadable" => true)) }
   let(:pipelines) { { pipeline_id => pipeline } }
 
   subject { described_class.new(new_pipeline_config, metric) }
@@ -55,7 +55,7 @@ describe LogStash::PipelineAction::Reload do
   end
 
   context "when the new pipeline is not reloadable" do
-    let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input { generator { id => 'new' } } output { null {} }", { "config.reload.automatic" => false}) }
+    let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input { generator { id => 'new' } } output { null {} }", { "pipeline.reloadable" => false}) }
 
     it "cannot successfully execute the action" do
       expect(subject.execute(pipelines)).not_to be_a_successful_action
@@ -63,7 +63,7 @@ describe LogStash::PipelineAction::Reload do
   end
 
   context "when the new pipeline has syntax errors" do
-    let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input generator { id => 'new' } } output { null {} }", { "config.reload.automatic" => false}) }
+    let(:new_pipeline_config) { mock_pipeline_config(pipeline_id, "input generator { id => 'new' } } output { null {} }", { "pipeline.reloadable" => false}) }
 
     it "cannot successfully execute the action" do
       expect(subject.execute(pipelines)).not_to be_a_successful_action

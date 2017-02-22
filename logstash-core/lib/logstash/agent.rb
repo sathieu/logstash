@@ -355,7 +355,7 @@ class LogStash::Agent
     # use the stop action implementation for that so we have the same code.
     # This also give us some context into why a shutdown is failing
     @pipelines_mutex.synchronize do
-      pipeline_actions = resolve_actions([]) # We stop all the pipeline, so we converge to a null state
+      pipeline_actions = resolve_actions([]) # We stop all the pipeline, so we converge to a empty state
       converge_state(pipeline_actions)
     end
   end

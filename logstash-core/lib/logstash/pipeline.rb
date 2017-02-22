@@ -107,7 +107,7 @@ module LogStash; class BasePipeline
   end
 
   def configured_as_reloadable?
-    settings.get("config.reload.automatic")
+    settings.get("pipeline.reloadable")
   end
 
   def reloadable_plugins?
