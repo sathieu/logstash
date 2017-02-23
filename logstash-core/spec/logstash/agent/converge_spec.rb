@@ -39,7 +39,7 @@ describe LogStash::Agent do
       end
     end
 
-    context "when the config is short lived" do
+    context "when the config is short lived (generator { count => 1 })" do
       let(:finite_pipeline_config) { mock_pipeline_config(:main, "input { generator { count => 1 } } output { null {} }") }
 
       it "execute the pipeline and stop execution" do
@@ -55,16 +55,33 @@ describe LogStash::Agent do
       end
 
       context "is set to`FALSE`" do
-        let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
+        context "and succesfully load the config" do
+          let(:agent_settings) { mock_settings("config.reload.automatic" => false) }
 
-        it "converge only once" do
-          agent_task = start_agent(subject)
+          it "converge only once" do
+            agent_task = start_agent(subject)
 
-          expect(source_loader.fetch_count).to eq(1)
-          expect(subject).to have_running_pipeline?(pipeline_config)
+            expect(source_loader.fetch_count).to eq(1)
+            expect(subject).to have_running_pipeline?(pipeline_config)
 
-          subject.shutdown
-          agent_task.stop!
+            subject.shutdown
+            agent_task.stop!
+          end
+        end
+
+        context "and it fails to load the config" do
+          let(:source_loader) do
+            TestSourceLoader.new(TestSourceLoader::FailedFetch.new("can't load the file"))
+          end
+
+          it "doesn't execute any pipeline" do
+            expect { subject.execute }.to raise_error
+
+            expect(source_loader.fetch_count).to eq(1)
+            expect(subject.pipelines_count).to eq(0)
+
+            subject.shutdown
+          end
         end
       end
 
@@ -73,19 +90,38 @@ describe LogStash::Agent do
         let(:agent_settings) do
           mock_settings(
             "config.reload.automatic" => true,
-            "config.reload.interval" => 0.01
+            "config.reload.interval" =>  interval
           )
         end
 
-        it "converges periodically the pipelines from the configs source" do
-          agent_task = start_agent(subject)
+        context "and succesfully load the config" do
+          it "converges periodically the pipelines from the configs source" do
+            agent_task = start_agent(subject)
 
-          sleep(0.01 * 10) # let the interval reload a few times
-          expect(subject).to have_running_pipeline?(pipeline_config)
-          expect(source_loader.fetch_count).to be > 1
+            sleep(interval * 10) # let the interval reload a few times
+            expect(subject).to have_running_pipeline?(pipeline_config)
+            expect(source_loader.fetch_count).to be > 1
 
-          subject.shutdown
-          agent_task.stop!
+            subject.shutdown
+            agent_task.stop!
+          end
+        end
+
+        context "and it fails to load the config" do
+          let(:source_loader) do
+            TestSourceLoader.new(TestSourceLoader::FailedFetch.new("can't load the file"))
+          end
+
+          it "it will keep trying to converge" do
+            agent_task = start_agent(subject)
+
+            sleep(interval * 20) # let the interval reload a few times
+            expect(subject.pipelines_count).to eq(0)
+            expect(source_loader.fetch_count).to be > 1
+
+            subject.shutdown
+            agent_task.stop!
+          end
         end
       end
     end

@@ -77,8 +77,6 @@ class LogStash::Agent
 
     converge_state_and_update
 
-    return 1 if clean_state?
-
     transition_to_running
 
     if auto_reload?
@@ -97,6 +95,8 @@ class LogStash::Agent
         converge_state_and_update unless stopped?
       end
     else
+      return 1 if clean_state?
+
       while !Stud.stop?
         if clean_state? || running_pipelines?
           sleep 0.5
@@ -123,17 +123,23 @@ class LogStash::Agent
   end
 
   def converge_state_and_update
-    pipeline_configs = @source_loader.fetch
-    # TODO(ph) did we get the pipeline succesfully or not
-    # if the fetch fails we should log it but not reload the state
+    results = @source_loader.fetch
 
+    unless results.success?
+      if auto_reload?
+        logger.info("Count not fetch the configuration to converge, will retry", :message => results.error, :retrying_in => @reload_interval)
+        return
+      else
+        raise "Count not fetch the configuration, message: #{results.error}"
+      end
+    end
 
     # We Lock any access on the pipelines, since the actions will modify the
     # content of it.
     converge_result = nil
 
     @pipelines_mutex.synchronize do
-      pipeline_actions = resolve_actions(pipeline_configs)
+      pipeline_actions = resolve_actions(results.response)
       converge_result = converge_state(pipeline_actions)
     end
 

@@ -7,12 +7,41 @@ require "set"
 module LogStash module Config
   class SourceLoader
     class AggregateSource
+      class SuccessfulFetch
+        attr_reader :response
+
+        def initialize(response)
+          @response = response
+        end
+
+        def success?
+          true
+        end
+      end
+
+      class FailedFetch
+        attr_reader :error
+
+        def initialize(error)
+          @error = error
+        end
+
+        def success?
+          false
+        end
+      end
+
       def initialize(sources)
         @sources = sources
       end
 
       def fetch
-        @sources.collect(&:pipeline_configs).flatten
+        SuccessfulFetch.new(@sources.collect(&:pipeline_configs).flatten)
+      rescue => e
+        if logger.debug?
+          logger.debug("Could not fetch all the sources", :exception => e.class, :message => e.message, :backtrace => e.backtrace)
+        end
+        FailedFetch.new(e.message)
       end
     end
 

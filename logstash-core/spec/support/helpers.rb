@@ -56,9 +56,9 @@ def mock_pipeline_config(pipeline_id, config_string = nil, settings = {})
 end
 
 def start_agent(agent)
-  agent_task =  Stud::Task.new do
+  agent_task = Stud::Task.new do
     begin
-      subject.execute
+      agent.execute
     rescue => e
       raise "Start Agent exception: #{e}"
     end
