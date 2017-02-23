@@ -45,6 +45,10 @@ describe LogStash::Agent do
     expect(LogStash::Agent.new(agent_settings).name).to eq(Socket.gethostname)
   end
 
+  after(:each) do
+    subject.shutdown # shutdown/close the pipelines
+  end
+
   describe "register_pipeline" do
     let(:config_string) { "input { } filter { } output { }" }
     let(:agent_args) do
@@ -54,10 +58,6 @@ describe LogStash::Agent do
         "config.reload.interval" => 0.01,
         "pipeline.workers" => 4,
       }
-    end
-
-    after(:each) do
-      subject.shutdown
     end
 
     it "should delegate settings to new pipeline" do
