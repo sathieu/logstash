@@ -27,12 +27,20 @@ describe LogStash::Agent do
   end
 
   context "Agent execute options" do
+    let(:source_loader) do
+      TestSourceLoader.new(finite_pipeline_config)
+    end
+
     context "when the pipeline is execution limite (finite)" do
       let(:finite_pipeline_config) { mock_pipeline_config(:main, "input { generator { count => 1000 } } output { null {} }") }
 
-      let(:source_loader) do
-        TestSourceLoader.new(finite_pipeline_config)
+      it "execute the pipeline and stop execution" do
+        expect(subject.execute).to eq(0)
       end
+    end
+
+    context "when the config is short lived" do
+      let(:finite_pipeline_config) { mock_pipeline_config(:main, "input { generator { count => 1 } } output { null {} }") }
 
       it "execute the pipeline and stop execution" do
         expect(subject.execute).to eq(0)
