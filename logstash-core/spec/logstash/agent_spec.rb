@@ -412,6 +412,7 @@ describe LogStash::Agent do
     let(:agent_args) do
       {
         "config.reload.automatic" => true,
+        "config.reload.interval" => 0.01,
         "pipeline.batch.size" => 1,
         "metric.collect" => true,
         "path.config" => config_path
@@ -475,7 +476,7 @@ describe LogStash::Agent do
         end
 
         # wait until pipeline restarts
-        sleep(0.01) until dummy_output2.events_received > 0
+        sleep(0.2) until dummy_output2.events_received > 0
       end
 
       it "resets the pipeline metric collector" do
@@ -494,8 +495,8 @@ describe LogStash::Agent do
         snapshot = subject.metric.collector.snapshot_metric
         value = snapshot.metric_store.get_with_path("/stats/pipelines")[:stats][:pipelines][:main][:reloads][:successes].value
         instance_value = snapshot.metric_store.get_with_path("/stats")[:stats][:reloads][:successes].value
-        expect(value).to eq(1)
         expect(instance_value).to eq(1)
+        expect(value).to eq(1)
       end
 
       it "does not set the failure reload timestamp" do
@@ -525,6 +526,8 @@ describe LogStash::Agent do
           f.write(new_config)
           f.fsync
         end
+
+        sleep(0.1)
       end
 
       it "does not increase the successful reload count" do
