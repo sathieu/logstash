@@ -212,17 +212,21 @@ module LogStash; class Pipeline < BasePipeline
   end
 
   def start
-    clear_pipeline_metrics
-    collect_stats
-
     # Since we start lets assume that the metric namespace is cleared
     # this is useful in the context of pipeline reloading
 
+    clear_pipeline_metrics
+    collect_stats
+
     logger.debug("Starting pipeline", :pipeline_id => pipeline_id)
+
+    @finished_execution = Concurrent::AtomicBoolean.new(false)
+
     @thread = Thread.new do
       begin
         LogStash::Util.set_thread_name("pipeline.#{pipeline_id}")
         run
+        @finished_execution.make_true
       rescue => e
         close
         logger.error("Pipeline aborted due to error", :exception => e, :backtrace => e.backtrace)
@@ -240,11 +244,11 @@ module LogStash; class Pipeline < BasePipeline
 
   def wait_until_started
     while true do
-      # If the config is really short lived
-      # like a generator input with a count of 1,
-      # it maybe have finished execution already at this step.
-      # http://ruby-doc.com/docs/ProgrammingRuby/html/ref_c_thread.html#Thread.status
-      if thread.status == false
+      # This should be changed with an appropriate FSM
+      # It's an edge case, if we have a pipeline with
+      # a generator { count => 1 } its possible that `Thread#alive?` doesn't return true
+      # because the execution of the thread was successful and complete
+      if @finished_execution.true?
         return true
       elsif !thread.alive?
         return false

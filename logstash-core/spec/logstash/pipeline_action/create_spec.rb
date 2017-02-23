@@ -24,6 +24,15 @@ describe LogStash::PipelineAction::Create do
     expect(subject.pipeline_id).to eq(:main)
   end
 
+
+  context "when we have really short lived pipeline" do
+    let(:pipeline_config) { mock_pipeline_config(:main, "input { generator { count => 1 } } output { null {} }") }
+
+    it "returns a successful execution status" do
+      expect(subject.execute(pipelines)).to be_truthy
+    end
+  end
+
   context "when the pipeline succesfully start" do
     it "adds the pipeline to the current pipelines" do
       expect { subject.execute(pipelines) }.to change(pipelines, :size).by(1)
@@ -48,9 +57,10 @@ describe LogStash::PipelineAction::Create do
       end
     end
 
-    context "with an register or validation error" do
+    context "with an error raised during `#register`" do
+      let(:pipeline_config) { mock_pipeline_config(:main, "input { generator { id => '123' } } filter { ruby { init => '1/0' code => '1+2' } } output { null {} }") }
+
       it "returns false" do
-        allow_any_instance_of(LogStash::Inputs::Generator).to receive(:register).and_raise("Bad value")
         expect(subject.execute(pipelines)).to be_falsey
       end
     end
