@@ -128,7 +128,7 @@ class LogStash::Agent
 
     unless results.success?
       if auto_reload?
-        logger.info("Count not fetch the configuration to converge, will retry", :message => results.error, :retrying_in => @reload_interval)
+        logger.debug("Count not fetch the configuration to converge, will retry", :message => results.error, :retrying_in => @reload_interval)
         return
       else
         raise "Count not fetch the configuration, message: #{results.error}"
@@ -260,11 +260,11 @@ class LogStash::Agent
   # Currently only action related to pipeline exist, but nothing prevent us to use the same logic
   # for other tasks.
   def converge_state(pipeline_actions)
-    logger.info("Converging pipelines")
+    logger.debug("Converging pipelines")
 
     converge_result = LogStash::ConvergeResult.new(pipeline_actions.size)
 
-    logger.info("Needed actions to converge", :actions_count => pipeline_actions.size) unless pipeline_actions.empty?
+    logger.debug("Needed actions to converge", :actions_count => pipeline_actions.size) unless pipeline_actions.empty?
 
     pipeline_actions.each do |action|
       # We execute every task we need to converge the current state of pipelines
@@ -280,7 +280,7 @@ class LogStash::Agent
       # This give us a bit more extensibility with the current startup/validation model
       # that we currently have.
       begin
-        logger.info("Executing action", :action => action)
+        logger.debug("Executing action", :action => action)
         action_result = action.execute(@pipelines)
         converge_result.add(action, action_result)
       rescue Exception => e
@@ -306,9 +306,9 @@ class LogStash::Agent
     number_of_running_pipeline = running_pipelines.size
 
     if number_of_running_pipeline.size > 0
-      logger.info("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
+      logger.debug("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
     else
-      logger.info("No pipeline are currently running")
+      logger.debug("No pipeline are currently running")
     end
   end
 
