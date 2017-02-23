@@ -105,6 +105,7 @@ class LogStash::Agent
         end
       end
     end
+
     return 0
   ensure
     transition_to_stopped

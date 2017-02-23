@@ -262,10 +262,15 @@ class LogStash::Runner < Clamp::StrictCommand
         source_loader = LogStash::Config::SOURCE_LOADER.create(@settings)
 
         # TODO(ph): multiple pipeline will affect this
-        config_str = source_loader.fetch.first.config_string
-        LogStash::Pipeline.new(config_str)
-        puts "Configuration OK"
-        logger.info "Using config.test_and_exit mode. Config Validation Result: OK. Exiting Logstash"
+        results = source_loader.fetch
+        if results.success?
+          config_str = results.response.first.config_string
+          LogStash::BasePipeline.new(config_str)
+          puts "Configuration OK"
+          logger.info "Using config.test_and_exit mode. Config Validation Result: OK. Exiting Logstash"
+        else
+          raise "Could not load the configuration file"
+        end
         return 0
       rescue => e
         logger.fatal I18n.t("logstash.runner.invalid-configuration", :error => e.message)
@@ -277,9 +282,6 @@ class LogStash::Runner < Clamp::StrictCommand
     @data_path_lock = FileLockFactory.getDefault().obtainLock(setting("path.data"), ".lock");
 
     @agent = create_agent(@settings)
-
-    # TODO(ph): cleanup or exception needed?
-    # @agent.register_pipeline(@settings)
 
     # enable sigint/sigterm before starting the agent
     # to properly handle a stalled agent

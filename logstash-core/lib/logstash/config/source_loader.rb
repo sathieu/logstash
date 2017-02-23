@@ -31,6 +31,8 @@ module LogStash module Config
         end
       end
 
+      include LogStash::Util::Loggable
+
       def initialize(sources)
         @sources = sources
       end

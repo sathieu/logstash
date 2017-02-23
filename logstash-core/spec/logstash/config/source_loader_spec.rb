@@ -23,6 +23,16 @@ class AnotherDummySource < LogStash::Config::Source::Base
   end
 end
 
+class FailingSource < LogStash::Config::Source::Base
+  def pipeline_configs
+    raise "Something went wrong"
+  end
+
+  def self.match?(settings)
+    settings.get("path.config") =~ /fail/
+  end
+end
+
 describe LogStash::Config::SourceLoader do
   subject { described_class.new }
 
@@ -65,6 +75,20 @@ describe LogStash::Config::SourceLoader do
   end
 
   context "when source loader match" do
+    context "when an happen in the source" do
+      let(:settings) { mock_settings("path.config" => "dummy fail") }
+
+      it "wraps the error in a failed result" do
+        subject.configure_sources([DummySource, FailingSource])
+
+        config_loader = subject.create(settings)
+        result = config_loader.fetch
+
+        expect(result.success?).to be_falsey
+        expect(result.error).not_to be_nil
+      end
+    end
+
     context "when multiple match" do
       let(:settings) { mock_settings("path.config" => "another dummy") } # match both regex
 
@@ -72,9 +96,11 @@ describe LogStash::Config::SourceLoader do
         subject.configure_sources([DummySource, AnotherDummySource])
 
         config_loader = subject.create(settings)
+        result = config_loader.fetch
 
-        expect(config_loader.fetch.size).to eq(2)
-        expect(config_loader.fetch).to include(DummySource, AnotherDummySource)
+        expect(result.success?).to be_truthy
+        expect(result.response.size).to eq(2)
+        expect(result.response).to include(DummySource, AnotherDummySource)
       end
     end
 
@@ -85,9 +111,11 @@ describe LogStash::Config::SourceLoader do
         subject.configure_sources([DummySource, AnotherDummySource])
 
         config_loader = subject.create(settings)
+        result = config_loader.fetch
 
-        expect(config_loader.fetch.size).to eq(1)
-        expect(config_loader.fetch).to include(AnotherDummySource)
+        expect(result.success?).to be_truthy
+        expect(result.response.size).to eq(1)
+        expect(result.response).to include(AnotherDummySource)
       end
     end
   end
