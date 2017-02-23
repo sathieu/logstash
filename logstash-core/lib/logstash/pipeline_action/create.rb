@@ -24,6 +24,7 @@ module LogStash module PipelineAction
     # is managed by the caller.
     def execute(pipelines)
       pipeline = create_pipeline
+
       status = pipeline.start # block until the pipeline is correctly started or crashed
 
       if status

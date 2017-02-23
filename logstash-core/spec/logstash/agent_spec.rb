@@ -326,7 +326,7 @@ describe LogStash::Agent do
 
         # Since the pipeline is running in another threads
         # the content of the file wont be instant.
-        sleep(0.1) until File.exist?(temporary_file)
+        sleep(0.1) until ::File.size(temporary_file) > 0
         json_document = LogStash::Json.load(File.read(temporary_file).chomp)
         expect(json_document["message"]).to eq("foo-bar")
       end
@@ -411,10 +411,9 @@ describe LogStash::Agent do
 
     let(:agent_args) do
       {
-        "config.reload.automatic" => false,
+        "config.reload.automatic" => true,
         "pipeline.batch.size" => 1,
         "metric.collect" => true,
-        "pipeline.workers" => 2,
         "path.config" => config_path
       }
     end
@@ -429,11 +428,11 @@ describe LogStash::Agent do
     let(:initial_generator_threshold) { 1000 }
     let(:pipeline_thread) do
       Thread.new do
-        subject.register_pipeline(pipeline_settings)
         subject.execute
       end
     end
 
+    subject { described_class.new(agent_settings) }
 
     before :each do
       allow(LogStash::Outputs::DroppingDummyOutput).to receive(:new).at_least(:once).with(anything).and_return(dummy_output)
@@ -474,8 +473,6 @@ describe LogStash::Agent do
           f.write(new_config)
           f.fsync
         end
-
-        subject.converge_state_and_update
 
         # wait until pipeline restarts
         sleep(0.01) until dummy_output2.events_received > 0
@@ -528,8 +525,6 @@ describe LogStash::Agent do
           f.write(new_config)
           f.fsync
         end
-
-        subject.converge_state_and_update
       end
 
       it "does not increase the successful reload count" do
@@ -565,8 +560,15 @@ describe LogStash::Agent do
     end
 
     context "when reloading a config that raises exception on pipeline.run" do
-      let(:new_config) { "input { generator { count => 10000 } } output { stdout {}}" }
-      let(:new_config_generator_counter) { 500 }
+      let(:new_config) { "input { generator { count => 10000 } }" }
+      let(:agent_args) do
+        {
+          "config.reload.automatic" => false,
+          "pipeline.batch.size" => 1,
+          "metric.collect" => true,
+          "path.config" => config_path
+        }
+      end
 
       class BrokenGenerator < LogStash::Inputs::Generator
         def register
@@ -585,15 +587,15 @@ describe LogStash::Agent do
       end
 
       it "does not increase the successful reload count" do
-        expect { subject.send(:converge_state_and_update) }.to_not change {
+        expect { subject.converge_state_and_update }.to_not change {
           snapshot = subject.metric.collector.snapshot_metric
           reload_metrics = snapshot.metric_store.get_with_path("/stats/pipelines")[:stats][:pipelines][:main][:reloads]
           reload_metrics[:successes].value
         }
       end
 
-      it "increases the failured reload count" do
-        expect { subject.send(:converge_state_and_update) }.to change {
+      it "increases the failures reload count" do
+        expect { subject.converge_state_and_update }.to change {
           snapshot = subject.metric.collector.snapshot_metric
           reload_metrics = snapshot.metric_store.get_with_path("/stats/pipelines")[:stats][:pipelines][:main][:reloads]
           reload_metrics[:failures].value

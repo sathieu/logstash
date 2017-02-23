@@ -862,7 +862,7 @@ describe LogStash::Pipeline do
     end
 
     context "when all plugins are reloadable and pipeline is configured as reloadable" do
-      let(:pipeline) { LogStash::Pipeline.new("input { generator {} } output { null {} }", mock_settings("config.reload.automatic" => true)) }
+      let(:pipeline) { LogStash::Pipeline.new("input { generator {} } output { null {} }", mock_settings("pipeline.reloadable" => true)) }
 
       it "returns true" do
         expect(pipeline.reloadable?).to be_truthy
@@ -870,7 +870,7 @@ describe LogStash::Pipeline do
     end
 
     context "when the plugins are not reloadable and pipeline is configured as reloadable" do
-      let(:pipeline) { LogStash::Pipeline.new("input { stdin {} } output { null {} }", mock_settings("config.reload.automatic" => true)) }
+      let(:pipeline) { LogStash::Pipeline.new("input { stdin {} } output { null {} }", mock_settings("pipeline.reloadable" => true)) }
 
       it "returns true" do
         expect(pipeline.reloadable?).to be_falsey
@@ -878,7 +878,7 @@ describe LogStash::Pipeline do
     end
 
     context "when all plugins are reloadable and pipeline is configured as non-reloadable" do
-      let(:pipeline) { LogStash::Pipeline.new("input { generator {} } output { null {} }", mock_settings("config.reload.automatic" => false)) }
+      let(:pipeline) { LogStash::Pipeline.new("input { generator {} } output { null {} }", mock_settings("pipeline.reloadable" => false)) }
 
       it "returns true" do
         expect(pipeline.reloadable?).to be_falsey

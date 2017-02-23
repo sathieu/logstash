@@ -219,7 +219,6 @@ module LogStash; class Pipeline < BasePipeline
     # this is useful in the context of pipeline reloading
 
     logger.debug("Starting pipeline", :pipeline_id => pipeline_id)
-
     @thread = Thread.new do
       begin
         LogStash::Util.set_thread_name("pipeline.#{pipeline_id}")
@@ -241,7 +240,13 @@ module LogStash; class Pipeline < BasePipeline
 
   def wait_until_started
     while true do
-      if !thread.alive?
+      # If the config is really short lived
+      # like a generator input with a count of 1,
+      # it maybe have finished execution already at this step.
+      # http://ruby-doc.com/docs/ProgrammingRuby/html/ref_c_thread.html#Thread.status
+      if thread.status == false
+        return true
+      elsif !thread.alive?
         return false
       elsif running?
         return true

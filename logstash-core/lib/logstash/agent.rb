@@ -74,6 +74,7 @@ class LogStash::Agent
     logger.debug("starting agent")
 
     start_webserver
+
     converge_state_and_update
 
     return 1 if clean_state?
