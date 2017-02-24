@@ -275,6 +275,7 @@ describe LogStash::Agent do
             sleep(0.2) # lets us catch the new file
 
             try do
+              expect(subject.pipelines[default_pipeline_id.to_sym]).not_to be_nil
               expect(subject.pipelines[default_pipeline_id.to_sym].config_str).to eq(second_pipeline_config)
             end
 
