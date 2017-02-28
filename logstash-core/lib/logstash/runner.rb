@@ -37,11 +37,11 @@ class LogStash::Runner < Clamp::StrictCommand
 
   # Ordered list of check to run before starting logstash
   # theses checks can be changed by a plugin loaded into memory.
-  DEFAULT_BOOTSTRAP_CHECKS = Set.new([
+  DEFAULT_BOOTSTRAP_CHECKS = [
       LogStash::BootstrapCheck::BadRuby,
       LogStash::BootstrapCheck::BadJava,
       LogStash::BootstrapCheck::DefaultConfig
-  ])
+  ]
 
   # Node Settings
   option ["-n", "--node.name"], "NAME",
