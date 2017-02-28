@@ -76,8 +76,12 @@ module LogStash module Config
 
     def sources()
       @sources_lock.synchronize do
-        @sources.each do |source|
-          yield source
+        if block_given?
+          @sources.each do |source|
+            yield source
+          end
+        else
+          @sources
         end
       end
     end
