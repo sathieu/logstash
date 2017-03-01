@@ -75,7 +75,7 @@ describe LogStash::Agent do
           end
 
           it "doesn't execute any pipeline" do
-            expect { subject.execute }.to raise_error
+            expect { subject.execute }.not_to raise_error # errors is logged
 
             expect(source_loader.fetch_count).to eq(1)
             expect(subject.pipelines_count).to eq(0)
