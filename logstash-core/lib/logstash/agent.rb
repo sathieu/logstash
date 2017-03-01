@@ -148,6 +148,8 @@ class LogStash::Agent
     update_metrics(converge_result)
 
     converge_result
+  rescue => e
+    logger.error("An exception happened when auto reloading configuration", :exception => e.class, :message => e.message, :backtrace => e.backtrace)
   end
 
   # Calculate the Logstash uptime in milliseconds

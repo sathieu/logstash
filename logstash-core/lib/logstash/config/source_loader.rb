@@ -40,9 +40,7 @@ module LogStash module Config
       def fetch
         SuccessfulFetch.new(@sources.collect(&:pipeline_configs).compact.flatten)
       rescue => e
-        if logger.debug?
-          logger.debug("Could not fetch all the sources", :exception => e.class, :message => e.message, :backtrace => e.backtrace)
-        end
+        logger.error("Could not fetch all the sources", :exception => e.class, :message => e.message)
         FailedFetch.new(e.message)
       end
     end
