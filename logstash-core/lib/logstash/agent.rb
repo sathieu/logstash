@@ -144,7 +144,7 @@ class LogStash::Agent
       converge_result = converge_state(pipeline_actions)
     end
 
-    report_currently_running_pipelines
+    report_currently_running_pipelines(converge_result)
     update_metrics(converge_result)
 
     converge_result
@@ -302,13 +302,10 @@ class LogStash::Agent
     @state_resolver.resolve(@pipelines, pipeline_configs)
   end
 
-  def report_currently_running_pipelines
-    number_of_running_pipeline = running_pipelines.size
-
-    if number_of_running_pipeline.size > 0
-      logger.debug("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
-    else
-      logger.debug("No pipeline are currently running")
+  def report_currently_running_pipelines(converge_result)
+    if converge_result.total > 0
+      number_of_running_pipeline = running_pipelines.size
+      logger.info("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
     end
   end
 
