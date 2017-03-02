@@ -17,9 +17,14 @@ describe LogStash::Agent do
   let(:pipeline_settings) { agent_settings.clone }
   let(:pipeline_args) { {} }
   let(:config_file) { Stud::Temporary.pathname }
-  let(:config_file_txt) { "input { generator { count => 100000 } } output { }" }
+  let(:config_file_txt) { "input { generator { id => 'initial' } } output { }" }
+  let(:default_source_loader) do
+    sl = LogStash::Config::SourceLoader.new
+    sl.add_source(LogStash::Config::Source::Local.new(agent_settings))
+    sl
+  end
 
-  subject { LogStash::Agent.new(agent_settings) }
+  subject { LogStash::Agent.new(agent_settings, default_source_loader) }
 
   before :each do
     # This MUST run first, before `subject` is invoked to ensure clean state
@@ -42,14 +47,14 @@ describe LogStash::Agent do
   end
 
   it "fallback to hostname when no name is provided" do
-    expect(LogStash::Agent.new(agent_settings).name).to eq(Socket.gethostname)
+    expect(LogStash::Agent.new(agent_settings, default_source_loader).name).to eq(Socket.gethostname)
   end
 
   after(:each) do
     subject.shutdown # shutdown/close the pipelines
   end
 
-  describe "register_pipeline" do
+  describe "adding a new pipeline" do
     let(:config_string) { "input { } filter { } output { }" }
     let(:agent_args) do
       {
@@ -84,7 +89,7 @@ describe LogStash::Agent do
   end
 
   describe "#execute" do
-    let(:config_file_txt) { "input { generator { count => 100000 } } output { }" }
+    let(:config_file_txt) { "input { generator { id => 'old'} } output { }" }
     let(:mock_config_pipeline) { mock_pipeline_config(:main, config_file_txt, pipeline_settings) }
 
     let(:source_loader) { TestSourceLoader.new(mock_config_pipeline) }
@@ -154,7 +159,7 @@ describe LogStash::Agent do
 
           it "does upgrade the new config" do
             t = Thread.new { subject.execute }
-            sleep(0.1) until subject.running_pipelines? && subject.pipelines.values.first.ready?
+            sleep(0.1) until subject.pipelines_count > 0 && subject.pipelines.values.first.ready?
 
             expect(subject.converge_state_and_update).to be_a_successful_converge
             expect(subject).to have_running_pipeline?(mock_second_pipeline_config)
@@ -218,7 +223,7 @@ describe LogStash::Agent do
     end
 
     context "when auto_reload is true" do
-      subject { described_class.new(agent_settings) }
+      subject { described_class.new(agent_settings, default_source_loader) }
 
       let(:agent_args) do
         {
@@ -270,7 +275,9 @@ describe LogStash::Agent do
 
           it "does upgrade the new config" do
             t = Thread.new { subject.execute }
+
             sleep(0.05) until subject.running_pipelines? && subject.pipelines.values.first.running?
+
             File.open(config_file, "w") { |f| f.puts second_pipeline_config }
             sleep(0.2) # lets us catch the new file
 
