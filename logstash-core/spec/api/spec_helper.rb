@@ -97,7 +97,7 @@ shared_context "api setup" do
     @runner = LogStashRunner.new
     @runner.start
   end
-  
+
   after :all do
     @runner.stop
   end

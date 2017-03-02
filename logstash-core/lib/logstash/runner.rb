@@ -265,6 +265,7 @@ class LogStash::Runner < Clamp::StrictCommand
       begin
         # TODO(ph): multiple pipeline will affect this
         results = LogStash::Config::SOURCE_LOADER.fetch
+
         if results.success?
           config_str = results.response.first.config_string
           LogStash::BasePipeline.new(config_str)

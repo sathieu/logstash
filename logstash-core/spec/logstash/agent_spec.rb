@@ -441,7 +441,7 @@ describe LogStash::Agent do
       end
     end
 
-    subject { described_class.new(agent_settings) }
+    subject { described_class.new(agent_settings, default_source_loader) }
 
     before :each do
       allow(LogStash::Outputs::DroppingDummyOutput).to receive(:new).at_least(:once).with(anything).and_return(dummy_output)
