@@ -241,6 +241,7 @@ class LogStash::Runner < Clamp::StrictCommand
       signal_usage_error(e.message)
       return 1
     end
+    @dispatcher.fire(:after_bootstrap_checks)
 
     LogStash::Util::set_thread_name(self.class.name)
 
@@ -281,6 +282,7 @@ class LogStash::Runner < Clamp::StrictCommand
     # lock path.data before starting the agent
     @data_path_lock = FileLockFactory.getDefault().obtainLock(setting("path.data"), ".lock");
 
+    @dispatcher.fire(:before_agent)
     @agent = create_agent(@settings)
 
     # enable sigint/sigterm before starting the agent
