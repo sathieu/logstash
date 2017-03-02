@@ -46,7 +46,13 @@ class LogStash::Agent
     # Generate / load the persistent uuid
     id
 
-    @source_loader = source_loader.nil? ? LogStash::Config::SOURCE_LOADER.create(settings) : source_loader
+    # This is for backward compatibility in the tests
+    if source_loader.nil?
+      @source_loader = LogStash::Config::SOURCE_LOADER
+      @source_loader.add_source(LogStash::Config::Source::Local.new(@settings))
+    else
+      @source_loader = source_loader
+    end
 
     @reload_interval = setting("config.reload.interval")
     @pipelines_mutex = Mutex.new

@@ -93,8 +93,8 @@ end end
 
 # A Test Source loader will return the same configuration on every fetch call
 class TestSourceLoader
-  FailedFetch = LogStash::Config::SourceLoader::AggregateSource::FailedFetch
-  SuccessfulFetch = LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch
+  FailedFetch = LogStash::Config::SourceLoader::FailedFetch
+  SuccessfulFetch = LogStash::Config::SourceLoader::SuccessfulFetch
 
   def initialize(*responses)
     @count = Concurrent::AtomicFixnum.new(0)
@@ -117,24 +117,24 @@ end
       response = responses.first
 
       case response
-      when LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch
+      when LogStash::Config::SourceLoader::SuccessfulFetch
         response
-      when LogStash::Config::SourceLoader::AggregateSource::FailedFetch
+      when LogStash::Config::SourceLoader::FailedFetch
         response
       else
-        LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch.new(Array(response))
+        LogStash::Config::SourceLoader::SuccessfulFetch.new(Array(response))
       end
 
     else
-      LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch.new(responses)
+      LogStash::Config::SourceLoader::SuccessfulFetch.new(responses)
     end
   end
 end
 
 # This source loader will return a new configuration on very call until we ran out.
 class TestSequenceSourceLoader
-  FailedFetch = LogStash::Config::SourceLoader::AggregateSource::FailedFetch
-  SuccessfulFetch = LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch
+  FailedFetch = LogStash::Config::SourceLoader::FailedFetch
+  SuccessfulFetch = LogStash::Config::SourceLoader::SuccessfulFetch
 
   attr_reader :original_responses
 
@@ -160,12 +160,12 @@ class TestSequenceSourceLoader
   private
   def coerce_response(response)
     case response
-    when LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch
+    when LogStash::Config::SourceLoader::SuccessfulFetch
       response
-    when LogStash::Config::SourceLoader::AggregateSource::FailedFetch
+    when LogStash::Config::SourceLoader::FailedFetch
       response
     else
-      LogStash::Config::SourceLoader::AggregateSource::SuccessfulFetch.new(Array(response))
+      LogStash::Config::SourceLoader::SuccessfulFetch.new(Array(response))
     end
   end
 end

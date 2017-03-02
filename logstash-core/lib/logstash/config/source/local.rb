@@ -128,10 +128,6 @@ module LogStash module Config module Source
     INPUT_BLOCK_RE = /input *{/
     OUTPUT_BLOCK_RE = /output *{/
 
-    def initialize(settings)
-      super(settings)
-    end
-
     def pipeline_configs
       config_parts = []
 
@@ -144,8 +140,8 @@ module LogStash module Config module Source
       PipelineConfig.new(self.class, PIPELINE_ID, config_parts, @settings)
     end
 
-    def self.match?(settings)
-      settings.get("config.string") || settings.get("path.config")
+    def match?
+      config_string? || config_path?
     end
 
     private

@@ -5,6 +5,7 @@ require "stud/temporary"
 require "fileutils"
 require "pathname"
 require_relative "../../../support/helpers"
+require_relative "../../../support/matchers"
 require "spec_helper"
 require "webmock/rspec"
 

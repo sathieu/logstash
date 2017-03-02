@@ -8,8 +8,8 @@ class DummySource < LogStash::Config::Source::Base
     [self.class]
   end
 
-  def self.match?(settings)
-    settings.get("path.config") =~ /dummy/
+  def match?
+    @settings.get("path.config") =~ /dummy/
   end
 end
 
@@ -18,8 +18,8 @@ class AnotherDummySource < LogStash::Config::Source::Base
     [self.class]
   end
 
-  def self.match?(settings)
-    settings.get("path.config") =~ /another/
+  def match?
+    @settings.get("path.config") =~ /another/
   end
 end
 
@@ -28,8 +28,8 @@ class FailingSource < LogStash::Config::Source::Base
     raise "Something went wrong"
   end
 
-  def self.match?(settings)
-    settings.get("path.config") =~ /fail/
+  def match?
+    @settings.get("path.config") =~ /fail/
   end
 end
 
@@ -37,40 +37,30 @@ describe LogStash::Config::SourceLoader do
   subject { described_class.new }
 
   it "default to local source" do
-    sources = []
-
-    subject.sources { |source| sources << source }
-
-    expect(sources.size).to eq(1)
-    expect(sources).to include(LogStash::Config::Source::Local)
+    expect(subject.sources.size).to eq(0)
   end
 
   it "allows to override the available source loaders" do
     subject.configure_sources(DummySource)
-    sources = []
-    subject.sources { |source| sources << source }
-
-    expect(sources.size).to eq(1)
-    expect(sources).to include(DummySource)
+    expect(subject.sources.size).to eq(1)
+    expect(subject.sources).to include(DummySource)
   end
 
-  it "allows to add a new source" do
-    sources = []
-
+  it "allows to add a new sources" do
     subject.add_source(DummySource)
-    subject.sources { |source| sources << source }
+    subject.add_source(LogStash::Config::Source::Local)
 
-    expect(sources.size).to eq(2)
-    expect(sources).to include(DummySource, LogStash::Config::Source::Local)
+    expect(subject.sources.size).to eq(2)
+    expect(subject.sources).to include(DummySource, LogStash::Config::Source::Local)
   end
 
   context "when no source match" do
     let(:settings) { mock_settings("path.config" => "make it not match") } # match both regex
 
-    it "return the loaders with the matched sources" do
-      subject.configure_sources([DummySource, AnotherDummySource])
+    it "raises an exception" do
+      subject.configure_sources([DummySource.new(settings), AnotherDummySource.new(settings)])
 
-      expect { config_loader = subject.create(settings) }.to raise_error
+      expect { subject.fetch }.to raise_error
     end
   end
 
@@ -79,10 +69,9 @@ describe LogStash::Config::SourceLoader do
       let(:settings) { mock_settings("path.config" => "dummy fail") }
 
       it "wraps the error in a failed result" do
-        subject.configure_sources([DummySource, FailingSource])
+        subject.configure_sources([DummySource.new(settings), FailingSource.new(settings)])
 
-        config_loader = subject.create(settings)
-        result = config_loader.fetch
+        result = subject.fetch
 
         expect(result.success?).to be_falsey
         expect(result.error).not_to be_nil
@@ -93,10 +82,9 @@ describe LogStash::Config::SourceLoader do
       let(:settings) { mock_settings("path.config" => "another dummy") } # match both regex
 
       it "return the loaders with the matched sources" do
-        subject.configure_sources([DummySource, AnotherDummySource])
+        subject.configure_sources([DummySource.new(settings), AnotherDummySource.new(settings)])
 
-        config_loader = subject.create(settings)
-        result = config_loader.fetch
+        result = subject.fetch
 
         expect(result.success?).to be_truthy
         expect(result.response.size).to eq(2)
@@ -108,10 +96,9 @@ describe LogStash::Config::SourceLoader do
       let(:settings) { mock_settings("path.config" => "another") } # match both regex
 
       it "return the loaders with the matched sources" do
-        subject.configure_sources([DummySource, AnotherDummySource])
+        subject.configure_sources([DummySource.new(settings), AnotherDummySource.new(settings)])
 
-        config_loader = subject.create(settings)
-        result = config_loader.fetch
+        result = subject.fetch
 
         expect(result.success?).to be_truthy
         expect(result.response.size).to eq(1)

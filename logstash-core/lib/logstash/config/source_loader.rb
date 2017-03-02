@@ -6,42 +6,27 @@ require "set"
 
 module LogStash module Config
   class SourceLoader
-    class AggregateSource
-      class SuccessfulFetch
-        attr_reader :response
+    class SuccessfulFetch
+      attr_reader :response
 
-        def initialize(response)
-          @response = response
-        end
-
-        def success?
-          true
-        end
+      def initialize(response)
+        @response = response
       end
 
-      class FailedFetch
-        attr_reader :error
+      def success?
+        true
+      end
+    end
 
-        def initialize(error)
-          @error = error
-        end
+    class FailedFetch
+      attr_reader :error
 
-        def success?
-          false
-        end
+      def initialize(error)
+        @error = error
       end
 
-      include LogStash::Util::Loggable
-
-      def initialize(sources)
-        @sources = sources
-      end
-
-      def fetch
-        SuccessfulFetch.new(@sources.collect(&:pipeline_configs).compact.flatten)
-      rescue => e
-        logger.error("Could not fetch all the sources", :exception => e.class, :message => e.message)
-        FailedFetch.new(e.message)
+      def success?
+        false
       end
     end
 
@@ -49,18 +34,16 @@ module LogStash module Config
 
     def initialize
       @sources_lock = Mutex.new
-      @sources = Set.new([LogStash::Config::Source::Local])
+      @sources = Set.new
     end
 
     # This return a ConfigLoader object that will
     # abstract the call to the different sources and will return multiples pipeline
-    def create(settings)
+    def fetch
       sources_loaders = []
 
       sources do |source|
-        if source.match?(settings)
-          sources_loaders << source.new(settings)
-        end
+        sources_loaders << source if source.match?
       end
 
       if sources_loaders.empty?
@@ -68,11 +51,21 @@ module LogStash module Config
         # but lets add a guard so we fail fast.
         raise LogStash::InvalidSourceLoaderSettingError, "Can't find an appropriate config loader with current settings"
       else
-        AggregateSource.new(sources_loaders)
+        begin
+          pipeline_configs = sources_loaders
+            .collect { |source| Array(source.pipeline_configs) }
+            .compact
+            .flatten
+
+          SuccessfulFetch.new(pipeline_configs)
+        rescue => e
+          logger.error("Could not fetch all the sources", :exception => e.class, :message => e.message)
+          FailedFetch.new(e.message)
+        end
       end
     end
 
-    def sources()
+    def sources
       @sources_lock.synchronize do
         if block_given?
           @sources.each do |source|
@@ -81,6 +74,12 @@ module LogStash module Config
         else
           @sources
         end
+      end
+    end
+
+    def remove_source(klass)
+      @sources_lock.synchronize do
+        @sources.delete_if { |source| source == klass || source.is_a?(klass) }
       end
     end
 
