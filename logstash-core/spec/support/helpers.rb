@@ -68,3 +68,12 @@ def start_agent(agent)
   agent_task
 end
 
+def temporary_file(content, file_name = Time.now.to_i.to_s, directory = Stud::Temporary.pathname)
+  FileUtils.mkdir_p(directory)
+  target = ::File.join(directory, file_name)
+
+  File.open(target, "w+") do |f|
+    f.write(content)
+  end
+  target
+end

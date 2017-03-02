@@ -8,16 +8,6 @@ require_relative "../../../support/helpers"
 require "spec_helper"
 require "webmock/rspec"
 
-def temporary_file(content, file_name = Time.now.to_i.to_s, directory = Stud::Temporary.pathname)
-  FileUtils.mkdir_p(directory)
-  target = ::File.join(directory, file_name)
-
-  File.open(target, "w+") do |f|
-    f.write(content)
-  end
-  target
-end
-
 describe LogStash::Config::Source::Local::ConfigStringLoader do
   subject { described_class }
   let(:config_string) { "input { generator {} } output { stdout {} }"}
