@@ -287,6 +287,7 @@ class LogStash::Runner < Clamp::StrictCommand
 
     @dispatcher.fire(:before_agent)
     @agent = create_agent(@settings, LogStash::Config::SOURCE_LOADER)
+    @dispatcher.fire(:after_agent)
 
     # enable sigint/sigterm before starting the agent
     # to properly handle a stalled agent
