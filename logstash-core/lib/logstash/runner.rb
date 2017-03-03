@@ -171,6 +171,10 @@ class LogStash::Runner < Clamp::StrictCommand
   def initialize(*args)
     @settings = LogStash::SETTINGS
     @bootstrap_checks = DEFAULT_BOOTSTRAP_CHECKS.dup
+
+    # Default we check local sources: `-e`, `-f` and the logstash.yml options.
+    LogStash::Config::SOURCE_LOADER.add_source(LogStash::Config::Source::Local.new(@settings))
+
     super(*args)
   end
 
@@ -231,9 +235,6 @@ class LogStash::Runner < Clamp::StrictCommand
 
     @dispatcher = LogStash::EventDispatcher.new(self)
     LogStash::PLUGIN_REGISTRY.hooks.register_emitter(self.class, @dispatcher)
-
-    # Default we check local sources: `-e`, `-f` and the logstash.yml options.
-    LogStash::Config::SOURCE_LOADER.add_source(LogStash::Config::Source::Local.new(@settings))
 
     @settings.validate_all
     @dispatcher.fire(:before_bootstrap_checks)
