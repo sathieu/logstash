@@ -61,7 +61,7 @@ describe LogStash::PipelineAction::Create do
       let(:pipeline_config) { mock_pipeline_config(:main, "input { generator { id => '123' } } filter { ruby { init => '1/0' code => '1+2' } } output { null {} }") }
 
       it "returns false" do
-        expect(subject.execute(pipelines)).to be_falsey
+        expect(subject.execute(pipelines)).not_to be_a_successful_action
       end
     end
   end
