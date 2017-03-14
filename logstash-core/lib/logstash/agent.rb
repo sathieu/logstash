@@ -291,6 +291,11 @@ class LogStash::Agent
         logger.debug("Executing action", :action => action)
         action_result = action.execute(@pipelines)
         converge_result.add(action, action_result)
+
+        unless action_result.successful?
+          logger.error("Failed to execute action", :id => action.pipeline_id,
+                       :action_type => action_result.class, :message => action_result.message)
+        end
       rescue Exception => e
         logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
         converge_result.add(action, e)
@@ -311,7 +316,7 @@ class LogStash::Agent
   end
 
   def report_currently_running_pipelines(converge_result)
-    if converge_result.total > 0
+    if converge_result.success? && converge_result.total > 0
       number_of_running_pipeline = running_pipelines.size
       logger.info("Pipelines running", :count => number_of_running_pipeline, :pipelines => running_pipelines.values.collect(&:pipeline_id) )
     end

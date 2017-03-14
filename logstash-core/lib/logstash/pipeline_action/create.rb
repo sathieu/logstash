@@ -1,6 +1,7 @@
 # encoding: utf-8
 require "logstash/pipeline_action/base"
 require "logstash/pipeline"
+require "logstash/converge_result"
 require "logstash/util/loggable"
 
 module LogStash module PipelineAction
@@ -30,7 +31,8 @@ module LogStash module PipelineAction
       if status
         pipelines[pipeline_id] = pipeline # The pipeline is successfully started we can add it to the hash
       end
-      status
+
+      LogStash::ConvergeResult::ActionResult.create(self, status)
     end
 
     def create_pipeline
