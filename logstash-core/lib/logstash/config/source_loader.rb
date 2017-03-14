@@ -32,9 +32,10 @@ module LogStash module Config
 
     include LogStash::Util::Loggable
 
-    def initialize
+    def initialize(settings = LogStash::SETTINGS)
       @sources_lock = Mutex.new
       @sources = Set.new
+      @settings = settings
     end
 
     # This return a ConfigLoader object that will
@@ -56,6 +57,10 @@ module LogStash module Config
             .collect { |source| Array(source.pipeline_configs) }
             .compact
             .flatten
+
+          if config_debug?
+            pipeline_configs.each { |pipeline_config| pipeline_config.display_debug_information }
+          end
 
           SuccessfulFetch.new(pipeline_configs)
         rescue => e
@@ -92,6 +97,11 @@ module LogStash module Config
     def add_source(new_source)
       logger.debug("Adding source", :source => new_source.to_s)
       @sources_lock.synchronize { @sources << new_source}
+    end
+
+    private
+    def config_debug?
+      @settings.get_value("config.debug") && logger.debug?
     end
   end
 
