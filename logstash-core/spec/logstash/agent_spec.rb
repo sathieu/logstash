@@ -283,7 +283,7 @@ describe LogStash::Agent do
 
             try do
               expect(subject.pipelines[default_pipeline_id.to_sym]).not_to be_nil
-              expect(subject.pipelines[default_pipeline_id.to_sym].config_str).to eq(second_pipeline_config)
+              expect(subject.pipelines[default_pipeline_id.to_sym].config_str).to match(second_pipeline_config)
             end
 
             # TODO: refactor this. forcing an arbitrary fixed delay for thread concurrency issues is an indication of
@@ -291,7 +291,7 @@ describe LogStash::Agent do
             sleep(0.1)
             Stud.stop!(t)
             t.join
-            expect(subject.get_pipeline(:main).config_str).to eq(second_pipeline_config)
+            expect(subject.get_pipeline(:main).config_str).to match(second_pipeline_config)
             subject.shutdown
           end
         end
