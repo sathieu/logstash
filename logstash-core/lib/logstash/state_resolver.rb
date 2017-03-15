@@ -1,6 +1,6 @@
 # encoding: utf-8
 module LogStash
-  # In the beginning I've was using this code as a method in the Agent class directly
+  # In the beginning I was using this code as a method in the Agent class directly
   # But with the plugins system I think we should be able to swap what kind of action would be run.
   #
   # Lets take the example of dynamic source, where the pipeline config and settings are located and
