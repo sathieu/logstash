@@ -5,7 +5,9 @@ module LogStash module BootstrapCheck
   class DefaultConfig
     def self.check(settings)
       if settings.get("config.string").nil? && settings.get("path.config").nil?
-        raise LogStash::BootstrapCheckError, I18n.t("logstash.runner.missing-configuration")
+        unless settings.get("config.multi_pipeline")
+          raise LogStash::BootstrapCheckError, I18n.t("logstash.runner.missing-configuration")
+        end
       end
 
       if settings.get("config.reload.automatic") && settings.get("path.config").nil?

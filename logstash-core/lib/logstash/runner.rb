@@ -174,6 +174,7 @@ class LogStash::Runner < Clamp::StrictCommand
 
     # Default we check local sources: `-e`, `-f` and the logstash.yml options.
     LogStash::Config::SOURCE_LOADER.add_source(LogStash::Config::Source::Local.new(@settings))
+    LogStash::Config::SOURCE_LOADER.add_source(LogStash::Config::Source::MultiLocal.new(@settings))
 
     super(*args)
   end
