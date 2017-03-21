@@ -8,11 +8,18 @@ module LogStash
           @stats = factory.build(:stats)
         end
 
+        get "/pipelines/?:id?" do
+          payload = {
+            :pipelines => pipeline_payload(params["id"])
+          }
+          respond_with(payload)
+        end
+
         get "/?:filter?" do
           payload = {
             :jvm => jvm_payload,
             :process => process_payload,
-            :pipeline => pipeline_payload,
+            :pipelines => pipeline_payload,
             :reloads => reloads,
             :os => os_payload
           }
@@ -44,8 +51,8 @@ module LogStash
           @stats.memory
         end
 
-        def pipeline_payload
-          @stats.pipeline
+        def pipeline_payload(val = nil)
+          @stats.pipeline(val)
         end
       end
     end

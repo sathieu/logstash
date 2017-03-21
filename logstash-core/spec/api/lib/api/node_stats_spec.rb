@@ -73,7 +73,7 @@ describe LogStash::Api::Modules::NodeStats do
         "load_average" => { "1m" => Numeric }
       }
     },
-   "pipeline" => {
+   "pipelines" => {
      "events" => {
         "duration_in_millis" => Numeric,
         "in" => Numeric,
