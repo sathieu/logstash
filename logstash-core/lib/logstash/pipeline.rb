@@ -55,7 +55,7 @@ module LogStash; class BasePipeline
     # config_code = BasePipeline.compileConfig(config_str)
 
     if settings.get_value("config.debug") && @logger.debug?
-      logger.debug("Compiled pipeline code", default_logging_keys(:code => config_code))
+      @logger.debug("Compiled pipeline code", default_logging_keys(:code => config_code))
     end
 
     # Evaluate the config compiled code that will initialize all the plugins and define the
@@ -717,7 +717,12 @@ module LogStash; class Pipeline < BasePipeline
   private
 
   def default_logging_keys(other_keys = {})
-    { :pipeline_id => pipeline_id }.merge(other_keys)
+    default_options = if thread
+                        { :pipeline_id => pipeline_id, :thread => thread.inspect }
+                      else
+                        { :pipeline_id => pipeline_id }
+                      end
+    default_options.merge(other_keys)
   end
 
   def draining_queue?
