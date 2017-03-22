@@ -55,7 +55,7 @@ module LogStash; class BasePipeline
     # config_code = BasePipeline.compileConfig(config_str)
 
     if settings.get_value("config.debug") && @logger.debug?
-      @logger.debug("Compiled pipeline code", :code => config_code)
+      logger.debug("Compiled pipeline code", default_logging_keys(:code => config_code))
     end
 
     # Evaluate the config compiled code that will initialize all the plugins and define the
@@ -153,7 +153,7 @@ module LogStash; class Pipeline < BasePipeline
     begin
       @queue = LogStash::QueueFactory.create(settings)
     rescue => e
-      @logger.error("Logstash failed to create queue", "exception" => e.message, "backtrace" => e.backtrace)
+      @logger.error("Logstash failed to create queue", default_logging_keys("exception" => e.message, "backtrace" => e.backtrace))
       raise e
     end
 
@@ -193,15 +193,14 @@ module LogStash; class Pipeline < BasePipeline
 
     if @settings.set?("pipeline.workers")
       if pipeline_workers > 1
-        @logger.warn("Warning: Manual override - there are filters that might not work with multiple worker threads",
-                     :worker_threads => pipeline_workers, :filters => plugins)
+        @logger.warn("Warning: Manual override - there are filters that might not work with multiple worker threads", default_logging_keys(:worker_threads => pipeline_workers, :filters => plugins))
       end
     else
       # user did not specify a worker thread count
       # warn if the default is multiple
       if default > 1
         @logger.warn("Defaulting pipeline worker threads to 1 because there are some filters that might not work with multiple worker threads",
-                     :count_was => default, :filters => plugins)
+                     default_logging_keys(:count_was => default, :filters => plugins))
         return 1 # can't allow the default value to propagate if there are unsafe filters
       end
     end
@@ -219,7 +218,7 @@ module LogStash; class Pipeline < BasePipeline
     clear_pipeline_metrics
     collect_stats
 
-    logger.debug("Starting pipeline", :pipeline_id => pipeline_id)
+    logger.debug("Starting pipeline", default_logging_keys)
 
     @finished_execution = Concurrent::AtomicBoolean.new(false)
 
@@ -230,14 +229,14 @@ module LogStash; class Pipeline < BasePipeline
         @finished_execution.make_true
       rescue => e
         close
-        logger.error("Pipeline aborted due to error", :exception => e, :backtrace => e.backtrace)
+        logger.error("Pipeline aborted due to error", default_logging_keys(:exception => e, :backtrace => e.backtrace))
       end
     end
 
     status = wait_until_started
 
     if status
-      logger.debug("Pipeline started succesfully", :pipeline_id => pipeline_id)
+      logger.debug("Pipeline started succesfully", default_logging_keys(:pipeline_id => pipeline_id))
     end
 
     status
@@ -268,7 +267,7 @@ module LogStash; class Pipeline < BasePipeline
 
     start_workers
 
-    @logger.info("Pipeline #{@pipeline_id} started")
+    @logger.info("Pipeline started", default_logging_keys)
 
     # Block until all inputs have stopped
     # Generally this happens if SIGINT is sent and `shutdown` is called from an external thread
@@ -278,14 +277,14 @@ module LogStash; class Pipeline < BasePipeline
     wait_inputs
     transition_to_stopped
 
-    @logger.debug("Input plugins stopped! Will shutdown filter/output workers.")
+    @logger.debug("Input plugins stopped! Will shutdown filter/output workers.", default_logging_keys)
 
     shutdown_flusher
     shutdown_workers
 
     close
 
-    @logger.debug("Pipeline #{@pipeline_id} has been shutdown")
+    @logger.debug("Pipeline has been shutdown", default_logging_keys)
 
     # exit code
     return 0
@@ -319,7 +318,7 @@ module LogStash; class Pipeline < BasePipeline
     plugin.register
     plugin
   rescue => e
-    @logger.error("Error registering plugin", :plugin => plugin.inspect, :error => e.message)
+    @logger.error("Error registering plugin", default_logging_keys(:plugin => plugin.inspect, :error => e.message))
     raise e
   end
 
@@ -352,14 +351,13 @@ module LogStash; class Pipeline < BasePipeline
       config_metric.gauge(:config_reload_automatic, @settings.get("config.reload.automatic"))
       config_metric.gauge(:config_reload_interval, @settings.get("config.reload.interval"))
 
-      @logger.info("Starting pipeline",
-                   "id" => self.pipeline_id,
-                   "pipeline.workers" => pipeline_workers,
-                   "pipeline.batch.size" => batch_size,
-                   "pipeline.batch.delay" => batch_delay,
-                   "pipeline.max_inflight" => max_inflight)
+      @logger.info("Starting pipeline", default_logging_keys(
+        "pipeline.workers" => pipeline_workers,
+        "pipeline.batch.size" => batch_size,
+        "pipeline.batch.delay" => batch_delay,
+        "pipeline.max_inflight" => max_inflight))
       if max_inflight > MAX_INFLIGHT_WARN_THRESHOLD
-        @logger.warn "CAUTION: Recommended inflight events max exceeded! Logstash will run with up to #{max_inflight} events in memory in your current configuration. If your message sizes are large this may cause instability with the default heap size. Please consider setting a non-standard heap size, changing the batch size (currently #{batch_size}), or changing the number of pipeline workers (currently #{pipeline_workers})"
+        @logger.warn("CAUTION: Recommended inflight events max exceeded! Logstash will run with up to #{max_inflight} events in memory in your current configuration. If your message sizes are large this may cause instability with the default heap size. Please consider setting a non-standard heap size, changing the batch size (currently #{batch_size}), or changing the number of pipeline workers (currently #{pipeline_workers})", default_logging_keys)
       end
 
       pipeline_workers.times do |t|
@@ -437,7 +435,7 @@ module LogStash; class Pipeline < BasePipeline
     # Users need to check their configuration or see if there is a bug in the
     # plugin.
     @logger.error("Exception in pipelineworker, the pipeline stopped processing new events, please check your filter configuration and restart Logstash.",
-                  "exception" => e.message, "backtrace" => e.backtrace)
+                  default_logging_keys("exception" => e.message, "backtrace" => e.backtrace))
 
     raise e
   end
@@ -500,20 +498,21 @@ module LogStash; class Pipeline < BasePipeline
     rescue => e
       if plugin.stop?
         @logger.debug("Input plugin raised exception during shutdown, ignoring it.",
-                      :plugin => plugin.class.config_name, :exception => e.message,
-                      :backtrace => e.backtrace)
+                      default_logging_keys(:plugin => plugin.class.config_name, :exception => e.message, :backtrace => e.backtrace))
         return
       end
 
       # otherwise, report error and restart
       if @logger.debug?
         @logger.error(I18n.t("logstash.pipeline.worker-error-debug",
-                             :plugin => plugin.inspect, :error => e.message,
-                             :exception => e.class,
-                             :stacktrace => e.backtrace.join("\n")))
+                             default_logging_keys(
+                               :plugin => plugin.inspect,
+                               :error => e.message,
+                               :exception => e.class,
+                               :stacktrace => e.backtrace.join("\n"))))
       else
         @logger.error(I18n.t("logstash.pipeline.worker-error",
-                             :plugin => plugin.inspect, :error => e.message))
+                             default_logging_keys(:plugin => plugin.inspect, :error => e.message)))
       end
 
       # Assuming the failure that caused this exception is transient,
@@ -551,15 +550,15 @@ module LogStash; class Pipeline < BasePipeline
   end
 
   def wait_for_workers
-    @logger.debug("Closing inputs")
+    @logger.debug("Closing inputs", default_logging_keys)
     @worker_threads.map(&:join)
-    @logger.debug("Worker closed")
+    @logger.debug("Worker closed", default_logging_keys)
   end
 
   def stop_inputs
-    @logger.debug "Closing inputs"
+    @logger.debug("Closing inputs", default_logging_keys)
     @inputs.each(&:do_stop)
-    @logger.debug "Closed inputs"
+    @logger.debug("Closed inputs", default_logging_keys)
   end
 
   # After `shutdown` is called from an external thread this is called from the main thread to
@@ -568,12 +567,12 @@ module LogStash; class Pipeline < BasePipeline
   def shutdown_workers
     # Each worker thread will receive this exactly once!
     @worker_threads.each do |t|
-      @logger.debug("Pushing shutdown", :thread => t.inspect)
+      @logger.debug("Pushing shutdown", default_logging_keys(:thread => t.inspect))
       @signal_queue.push(SHUTDOWN)
     end
 
     @worker_threads.each do |t|
-      @logger.debug("Shutdown waiting for worker thread #{t}")
+      @logger.debug("Shutdown waiting for worker thread" , default_logging_keys(:thread => t.inspect))
       t.join
     end
 
@@ -619,7 +618,7 @@ module LogStash; class Pipeline < BasePipeline
 
   def flush
     if @flushing.compare_and_set(false, true)
-      @logger.debug? && @logger.debug("Pushing flush onto pipeline")
+      @logger.debug? && @logger.debug("Pushing flush onto pipeline", default_logging_keys)
       @signal_queue.push(FLUSH)
     end
   end
@@ -642,7 +641,7 @@ module LogStash; class Pipeline < BasePipeline
       return if @force_shutdown.true?
 
       unless event.cancelled?
-        @logger.debug? and @logger.debug("Pushing flushed events", :event => event)
+        @logger.debug? and @logger.debug("Pushing flushed events", default_logging_keys(:event => event))
         batch.merge(event)
       end
     end
@@ -716,6 +715,10 @@ module LogStash; class Pipeline < BasePipeline
   end
 
   private
+
+  def default_logging_keys(other_keys = {})
+    { :pipeline_id => pipeline_id }.merge(other_keys)
+  end
 
   def draining_queue?
     @drain_queue ? !@filter_queue_client.empty? : false

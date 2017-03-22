@@ -146,7 +146,6 @@ class LogStash::Agent
     converge_result = nil
 
     @pipelines_mutex.synchronize do
-      return if stopped? # we are currently shutting down so skip this converge
       pipeline_actions = resolve_actions(results.response)
       converge_result = converge_state(pipeline_actions)
     end

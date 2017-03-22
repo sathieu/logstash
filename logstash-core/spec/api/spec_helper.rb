@@ -6,6 +6,7 @@ require "logstash/devutils/rspec/spec_helper"
 $LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
 require "lib/api/support/resource_dsl_methods"
 require_relative "../support/mocks_classes"
+require_relative "../support/helpers"
 require 'rspec/expectations'
 require "logstash/settings"
 require 'rack/test'
