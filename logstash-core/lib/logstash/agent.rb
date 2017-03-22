@@ -81,9 +81,9 @@ class LogStash::Agent
 
     start_webserver
 
-    converge_state_and_update
-
     transition_to_running
+
+    converge_state_and_update
 
     if auto_reload?
       # `sleep_then_run` instead of firing the interval right away
@@ -146,6 +146,7 @@ class LogStash::Agent
     converge_result = nil
 
     @pipelines_mutex.synchronize do
+      return if stopped? # we are currently shutting down so skip this converge
       pipeline_actions = resolve_actions(results.response)
       converge_result = converge_state(pipeline_actions)
     end
@@ -171,6 +172,13 @@ class LogStash::Agent
     transition_to_stopped
     converge_result = shutdown_pipelines
     converge_result
+  end
+
+  def force_shutdown!
+    stop_collecting_metrics
+    stop_webserver
+    transition_to_stopped
+    force_shutdown_pipelines!
   end
 
   def id
@@ -267,6 +275,7 @@ class LogStash::Agent
   #
   # Currently only action related to pipeline exist, but nothing prevent us to use the same logic
   # for other tasks.
+  #
   def converge_state(pipeline_actions)
     logger.debug("Converging pipelines")
 
@@ -296,6 +305,8 @@ class LogStash::Agent
           logger.error("Failed to execute action", :id => action.pipeline_id,
                        :action_type => action_result.class, :message => action_result.message)
         end
+      rescue SystemExit => e
+        converge_result.add(action, e)
       rescue Exception => e
         logger.error("Failed to execute action", :action => action, :exception => e.class.name, :message => e.message)
         converge_result.add(action, e)
@@ -355,6 +366,13 @@ class LogStash::Agent
 
   def collect_metrics?
     @collect_metric
+  end
+
+  def force_shutdown_pipelines!
+    @pipelines.each do |_, pipeline|
+      # TODO(ph): should it be his own action?
+      pipeline.force_shutdown!
+    end
   end
 
   def shutdown_pipelines

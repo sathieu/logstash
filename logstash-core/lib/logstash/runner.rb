@@ -419,6 +419,7 @@ class LogStash::Runner < Clamp::StrictCommand
     Stud::trap("INT") do
       if @interrupted_once
         logger.fatal(I18n.t("logstash.agent.forced_sigint"))
+        @agent.force_shutdown!
         exit
       else
         logger.warn(I18n.t("logstash.agent.sigint"))
