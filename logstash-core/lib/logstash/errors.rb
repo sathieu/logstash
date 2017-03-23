@@ -12,6 +12,4 @@ module LogStash
   class ThisMethodWasRemoved < Bug; end
   class ConfigLoadingError < Error; end
   class InvalidSourceLoaderSettingError < Error; end
-  class PipelineActionError < Error; end
-  class NonReloadablePipelineError < StandardError; end
 end
