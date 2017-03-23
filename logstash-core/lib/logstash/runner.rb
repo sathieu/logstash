@@ -208,7 +208,7 @@ class LogStash::Runner < Clamp::StrictCommand
     # We invoke post_process to apply extra logic to them.
     # The post_process callbacks have been added in environment.rb
     @settings.post_process
-    
+
     require "logstash/util"
     require "logstash/util/java_version"
     require "stud/task"
@@ -227,6 +227,12 @@ class LogStash::Runner < Clamp::StrictCommand
 
     if setting("config.debug") && !logger.debug?
       logger.warn("--config.debug was specified, but log.level was not set to \'debug\'! No config info will be logged.")
+    end
+
+    # Skip any validation and just return the version
+    if version?
+      show_version
+      return 0
     end
 
     # We configure the registry and load any plugin that can register hooks
@@ -252,11 +258,6 @@ class LogStash::Runner < Clamp::StrictCommand
     LogStash::ShutdownWatcher.unsafe_shutdown = setting("pipeline.unsafe_shutdown")
 
     configure_plugin_paths(setting("path.plugins"))
-
-    if version?
-      show_version
-      return 0
-    end
 
     return start_shell(setting("interactive"), binding) if setting("interactive")
 

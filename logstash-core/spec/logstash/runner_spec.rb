@@ -7,6 +7,7 @@ require "stud/temporary"
 require "logstash/util/java_version"
 require "logstash/logging/json"
 require "json"
+require_relative "../support/helpers"
 
 class NullRunner
   def run(args); end
@@ -18,6 +19,8 @@ describe LogStash::Runner do
   let(:logger) { double("logger") }
 
   before :each do
+    clear_data_dir
+
     allow(LogStash::Runner).to receive(:logger).and_return(logger)
     allow(logger).to receive(:debug?).and_return(true)
     allow(logger).to receive(:subscribe).with(any_args)
@@ -34,9 +37,6 @@ describe LogStash::Runner do
 
   after :each do
     LogStash::SETTINGS.reset
-  end
-
-  after :all do
   end
 
   describe "argument precedence" do
@@ -149,8 +149,12 @@ describe LogStash::Runner do
     context "with a bad configuration" do
       let(:pipeline_string) { "rlwekjhrewlqrkjh" }
       it "should fail by returning a bad exit code" do
-        expect(logger).to receive(:fatal)
-        expect(subject.run(args)).to eq(1)
+        begin
+          expect(logger).to receive(:fatal)
+          expect(subject.run(args)).to eq(1)
+        rescue => e
+          require "pry";binding.pry
+        end
       end
     end
   end
