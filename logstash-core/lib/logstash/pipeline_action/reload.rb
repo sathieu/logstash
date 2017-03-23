@@ -36,6 +36,7 @@ module LogStash module PipelineAction
         return LogStash::ConvergeResult::FailedAction.new("Cannot reload pipeline, because the new pipeline is not reloadable")
       end
 
+      logger.info("Reloading pipeline", "pipeline.id" => pipeline_id)
       status = Stop.new(pipeline_id).execute(pipelines)
 
       if status

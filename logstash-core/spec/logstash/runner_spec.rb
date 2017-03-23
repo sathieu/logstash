@@ -34,6 +34,7 @@ describe LogStash::Runner do
     allow(LogStash::Logging::Logger).to receive(:configure_logging) do |level, path|
       allow(logger).to receive(:level).and_return(level.to_sym)
     end
+    LogStash::Config::SOURCE_LOADER.reset_sources
   end
 
   after :each do

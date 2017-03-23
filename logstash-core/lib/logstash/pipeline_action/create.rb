@@ -36,6 +36,7 @@ module LogStash module PipelineAction
     end
 
     def create_pipeline
+      logger.info("Creating pipeline", "pipeline.id" => pipeline_id)
       LogStash::Pipeline.new(@pipeline_config.config_string, @pipeline_config.settings, @metric)
     end
   end
