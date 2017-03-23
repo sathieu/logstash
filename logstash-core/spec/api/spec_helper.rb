@@ -25,6 +25,7 @@ module LogStash
       @webserver = Struct.new(:address).new(http_address)
       self.metric.gauge([], :http_address, http_address)
     end
+
     def stop_webserver; end
   end
 end
@@ -69,19 +70,6 @@ class LogStashRunner
   end
 end
 
-##
-# Method used to wrap up a request in between of a running
-# pipeline, this makes the whole execution model easier and
-# more contained as some threads might go wild.
-##
-def do_request(&block)
-  runner = LogStashRunner.new
-  runner.start
-  ret_val = block.call
-  runner.stop
-  ret_val
-end
-
 RSpec::Matchers.define :be_available? do
   match do |plugin|
     begin
@@ -95,6 +83,7 @@ end
 
 shared_context "api setup" do
   before :all do
+    clear_data_dir
     @runner = LogStashRunner.new
     @runner.start
   end
