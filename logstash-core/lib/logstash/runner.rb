@@ -265,12 +265,13 @@ class LogStash::Runner < Clamp::StrictCommand
 
     if setting("config.test_and_exit")
       begin
-        # TODO(ph): multiple pipeline will affect this
         results = LogStash::Config::SOURCE_LOADER.fetch
 
+        # TODO(ph): make it better for multiple pipeline
         if results.success?
-          config_str = results.response.first.config_string
-          LogStash::BasePipeline.new(config_str)
+          results.response.each do |pipeline_config|
+            LogStash::BasePipeline.new(pipeline_config.config_string)
+          end
           puts "Configuration OK"
           logger.info "Using config.test_and_exit mode. Config Validation Result: OK. Exiting Logstash"
         else

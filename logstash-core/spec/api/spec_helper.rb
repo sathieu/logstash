@@ -40,7 +40,7 @@ class LogStashRunner
   attr_reader :config_str, :agent, :pipeline_settings
 
   def initialize
-    @config_str   = "input { generator {count => 100 } } output { dummyoutput {} }"
+    @config_str   = "input { generator {id => 'api-generator-pipeline' count => 100 } } output { dummyoutput {} }"
 
     args = {
       "config.reload.automatic" => false,
@@ -53,8 +53,8 @@ class LogStashRunner
       "pipeline.batch.size" => 1,
       "pipeline.workers" => 1
     }
-    @settings = ::LogStash::SETTINGS.clone.merge(args)
 
+    @settings = ::LogStash::SETTINGS.clone.merge(args)
     @agent = LogStash::DummyAgent.new(@settings)
   end
 

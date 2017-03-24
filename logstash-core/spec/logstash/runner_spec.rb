@@ -6,6 +6,7 @@ require "stud/trap"
 require "stud/temporary"
 require "logstash/util/java_version"
 require "logstash/logging/json"
+require "logstash/config/source_loader"
 require "json"
 require_relative "../support/helpers"
 
@@ -136,6 +137,10 @@ describe LogStash::Runner do
   end
 
   describe "--config.test_and_exit" do
+    before do
+      # Reset the source in a clean state before any asserts
+      LogStash::Config::SOURCE_LOADER.configure_sources([])
+    end
     subject { LogStash::Runner.new("") }
     let(:args) { ["-t", "-e", pipeline_string] }
 
@@ -149,12 +154,8 @@ describe LogStash::Runner do
     context "with a bad configuration" do
       let(:pipeline_string) { "rlwekjhrewlqrkjh" }
       it "should fail by returning a bad exit code" do
-        begin
-          expect(logger).to receive(:fatal)
-          expect(subject.run(args)).to eq(1)
-        rescue => e
-          require "pry";binding.pry
-        end
+        expect(logger).to receive(:fatal)
+        expect(subject.run(args)).to eq(1)
       end
     end
   end
