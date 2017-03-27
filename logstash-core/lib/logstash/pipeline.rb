@@ -97,7 +97,9 @@ module LogStash; class BasePipeline
       FilterDelegator.new(@logger, klass, type_scoped_metric, args)
     else # input
       input_plugin = klass.new(args)
-      input_plugin.metric = type_scoped_metric.namespace(id)
+      scoped_metric = type_scoped_metric.namespace(id.to_sym)
+      scoped_metric.gauge(:name, input_plugin.config_name)
+      input_plugin.metric = scoped_metric
       input_plugin
     end
   end
@@ -214,8 +216,6 @@ module LogStash; class Pipeline < BasePipeline
   def start
     # Since we start lets assume that the metric namespace is cleared
     # this is useful in the context of pipeline reloading
-
-    clear_pipeline_metrics
     collect_stats
 
     logger.debug("Starting pipeline", default_logging_keys)
